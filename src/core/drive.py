@@ -9,31 +9,35 @@ import json
 from core.state import is_video_published
 
 def get_drive_service():
-    """Initialise le service Google Drive avec nettoyage automatique des données."""
-    encoded_json = os.environ.get("GDRIVE_SA_JSON_B64")
+    """Version de secours ultime contre l'erreur Extra Data."""
+    import re # Ajoute cet import en haut du fichier si besoin
+    
+    encoded_json = os.environ.get("GDRIVE_SA_JSON_B64", "").strip()
     if not encoded_json:
-        raise ValueError("❌ Erreur : GDRIVE_SA_JSON_B64 manquant dans les secrets GitHub.")
+        raise ValueError("❌ Secret GDRIVE_SA_JSON_B64 vide.")
     
     try:
-        # 1. Nettoyage des espaces/sauts de ligne dans la chaîne base64
-        encoded_json = encoded_json.strip()
-        
-        # 2. Décodage
+        # 1. Décodage et nettoyage des espaces
         decoded_json = base64.b64decode(encoded_json).decode('utf-8').strip()
         
-        # 3. Correction des caractères parasites (Extra data / BOM)
-        # On cherche la première accolade pour ignorer tout ce qui est avant
-        start_index = decoded_json.find('{')
-        if start_index != -1:
-            decoded_json = decoded_json[start_index:]
-        
-        # 4. Chargement JSON
-        service_account_info = json.loads(decoded_json)
-        
+        # 2. On utilise une Regex pour ne garder QUE ce qui est entre les premières {}
+        # Cela élimine tout caractère "Extra data" invisible à la fin
+        match = re.search(r'(\{.*\})', decoded_json, re.DOTALL)
+        if match:
+            clean_json = match.group(1)
+        else:
+            clean_json = decoded_json
+
+        # 3. Chargement
+        service_account_info = json.loads(clean_json)
         creds = service_account.Credentials.from_service_account_info(service_account_info)
         return build('drive', 'v3', credentials=creds)
+        
     except Exception as e:
-        print(f"❌ Erreur critique lors du chargement de la clé Google Drive : {str(e)}")
+        print(f"❌ Erreur finale : {e}")
+        # On affiche la longueur pour comprendre s'il y a un doublon
+        if 'decoded_json' in locals():
+            print(f"DEBUG: Taille reçue {len(decoded_json)} | Début: {decoded_json[:15]}")
         raise
 
 def get_unpublished_video(account_name, folder_ids, platform="youtube"):
