@@ -4,39 +4,29 @@ import sys
 import importlib.util
 
 def upload_to_tiktok(config, video_path, video_title):
-    # --- 1. LOCALISATION DU MOTEUR ---
+    # --- 1. LOCALISATION PRÉCISE DU MOTEUR ---
     current_dir = os.getcwd()
     engine_dir = os.path.join(current_dir, "engine")
     
-    # On cherche uploader.py là où il peut se cacher
-    possible_paths = [
-        os.path.join(engine_dir, "tiktok_uploader", "uploader.py"),
-        os.path.join(engine_dir, "uploader.py")
-    ]
-    
-    uploader_path = None
-    for p in possible_paths:
-        if os.path.exists(p):
-            uploader_path = p
-            break
+    # Chemin exact basé sur ton log : engine/tiktok_uploader/uploader.py
+    uploader_path = os.path.join(engine_dir, "tiktok_uploader", "uploader.py")
             
-    if not uploader_path:
-        print(f"❌ Erreur : Impossible de trouver uploader.py dans {engine_dir}")
-        if os.path.exists(engine_dir):
-            print(f"📁 Contenu trouvé dans engine : {os.listdir(engine_dir)}")
+    if not os.path.exists(uploader_path):
+        print(f"❌ Erreur : uploader.py est introuvable au chemin : {uploader_path}")
+        # Sécurité : on regarde si par hasard il est ailleurs
         return False
 
     # --- 2. CHARGEMENT CHIRURGICAL DU MOTEUR ---
-    # On ajoute les dossiers au path pour que les imports internes du moteur fonctionnent
-    sys.path.insert(0, engine_dir)
-    sys.path.insert(0, os.path.join(engine_dir, "tiktok_uploader"))
+    # On ajoute le dossier parent du package pour que les imports relatifs fonctionnent
+    if engine_dir not in sys.path:
+        sys.path.insert(0, engine_dir)
 
     try:
         spec = importlib.util.spec_from_file_location("uploader", uploader_path)
         uploader = importlib.util.module_from_spec(spec)
         sys.modules["uploader"] = uploader
         spec.loader.exec_module(uploader)
-        print(f"✅ Moteur chargé depuis : {uploader_path}")
+        print(f"✅ Moteur chargé avec succès depuis {uploader_path}")
     except Exception as e:
         print(f"🔥 Erreur lors du chargement du moteur : {e}")
         return False
@@ -49,39 +39,28 @@ def upload_to_tiktok(config, video_path, video_title):
         print(f"❌ Erreur : Secret TIKTOK_COOKIES_{account_id} introuvable.")
         return False
 
-    # Le moteur nécessite un fichier JSON physique pour les cookies
     cookie_file = os.path.join(current_dir, f"cookies_{account_id}.json")
     with open(cookie_file, 'w') as f:
         f.write(cookies_raw)
 
-    # Nettoyage du titre et ajout des tags
-    clean_title = video_title.replace(".mp4", "")
-    tags = config.get("tags", ["#fyp", "#viral"])
-    description = f"{clean_title} {' '.join(tags)}"
+    description = f"{video_title.replace('.mp4', '')} {' '.join(config.get('tags', ['#fyp', '#viral']))}"
 
     # --- 4. LANCEMENT DE L'UPLOAD ---
     try:
-        print(f"🚀 [Makiisthenes-Engine] Tentative d'upload : {video_path.name}")
+        print(f"🚀 [Makiisthenes] Upload en cours : {video_path.name}")
         
-        # Appel de la fonction de base du repo
-        # Note: uploader.upload_video va appeler le script Node.js pour la signature X-Bogus
+        # On utilise la fonction du repo
         success = uploader.upload_video(
             filename=str(video_path),
             description=description,
             cookies=cookie_file
         )
         
-        if success:
-            print(f"✅ TikTok : Publication réussie pour {video_title} !")
-            return True
-        else:
-            print("❌ Le moteur a retourné un échec (vérifie les cookies ou la signature Node).")
-            return False
+        return success
 
     except Exception as e:
-        print(f"❌ Erreur critique pendant l'upload : {e}")
+        print(f"❌ Erreur exécution moteur : {e}")
         return False
     finally:
-        # Nettoyage du fichier cookie temporaire
         if os.path.exists(cookie_file):
             os.remove(cookie_file)
