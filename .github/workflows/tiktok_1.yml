@@ -42,7 +42,7 @@ jobs:
           # 👈 On récupère la valeur du bouton coché ici :
           FORCE_POST: ${{ github.event.inputs.force_post == 'true' && '1' || '0' }}
           
-          DRIVE_FOLDER_ID: ${{ secrets.DRIVE_FOLDER_ID_TT_1 }}
+          DRIVE_FOLDER_ID: ${{ secrets.DRIVE_FOLDER_ID }}
           TIKTOK_COOKIES_TIKTOK_1: ${{ secrets.TIKTOK_COOKIES_TIKTOK_1 }}
           GDRIVE_SA_JSON_B64: ${{ secrets.GDRIVE_SA_JSON_B64 }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
