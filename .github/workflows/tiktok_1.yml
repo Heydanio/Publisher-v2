@@ -17,32 +17,35 @@ jobs:
       - name: 🟢 Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: "20"
 
-      - name: 🐍 Setup Python (3.10)
+      - name: 🐍 Setup Python
         uses: actions/setup-python@v5
         with:
-          python_version: '3.10'
+          python_version: "3.11"
 
-      - name: 📥 Installer le moteur et les dépendances réelles
+      - name: 📥 Clone et Patch Moteur (Logic Upstream)
         run: |
-          git clone https://github.com/makiisthenes/TiktokAutoUploader.git engine
+          rm -rf upstream
+          git clone https://github.com/makiisthenes/TiktokAutoUploader upstream
+          
+          # Installation des dépendances (Méthode de ton fichier fonctionnel)
           pip install --upgrade pip
-          # On installe TOUT ce qui a causé une erreur jusqu'ici
-          pip install requests requests-toolbelt browser-cookie3 fake-useragent 
-          pip install moviepy pytube requests-auth-aws-sigv4
-          pip install google-api-python-client google-auth-httplib2 google-auth-oauthlib supabase
+          pip install "selenium>=4.20.0" undetected-chromedriver
+          pip install -r upstream/requirements.txt --no-deps
+          pip install requests requests-toolbelt browser-cookie3 fake-useragent google-api-python-client google-auth google-auth-oauthlib supabase moviepy==1.0.3
+
+          # LE PATCH CRUCIAL : Lien symbolique pour que l'import fonctionne
+          ln -s upstream/tiktok_uploader tiktok_uploader 2>/dev/null || true
           
-          # Mock de ChromeDriver pour éviter Selenium
-          mkdir -p undetected_chromedriver
-          touch undetected_chromedriver/__init__.py
-          
-          # Signature Node
-          cd engine/tiktok_uploader/tiktok-signature/ && npm install
-          
+          # Installation du signataire Node
+          cd upstream/tiktok_uploader/tiktok-signature
+          npm install
+
       - name: 🚀 Run Publisher
         env:
-          PYTHONPATH: .:${{ github.workspace }}/engine
+          # On inclut upstream au PYTHONPATH
+          PYTHONPATH: .:${{ github.workspace }}/upstream
           ACCOUNT_NAME: "tiktok_1"
           FORCE_POST: ${{ github.event.inputs.force_post == 'true' && '1' || '0' }}
           DRIVE_FOLDER_ID: ${{ secrets.DRIVE_FOLDER_ID }}
