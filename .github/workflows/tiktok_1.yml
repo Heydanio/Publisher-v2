@@ -1,4 +1,4 @@
-name: Bot TikTok 1 - Direct
+name: Bot TikTok 1 - Makiisthenes Engine
 
 on:
   workflow_dispatch:
@@ -13,12 +13,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+
+      - name: 🟢 Setup Node.js (Requis pour les signatures)
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v5
         with:
           python_version: '3.10'
-      - name: Install
-        run: pip install requests requests-toolbelt google-api-python-client google-auth-httplib2 google-auth-oauthlib supabase
-      - name: Run
+
+      - name: 📥 Installer le moteur Makiisthenes
+        run: |
+          git clone https://github.com/makiisthenes/TiktokAutoUploader.git engine
+          pip install -r engine/requirements.txt
+          cd engine/tiktok_uploader/tiktok-signature/ && npm install
+
+      - name: 📦 Installer tes dépendances
+        run: pip install google-api-python-client google-auth-httplib2 google-auth-oauthlib supabase requests requests-toolbelt
+
+      - name: 🚀 Run Publisher
         env:
           ACCOUNT_NAME: "tiktok_1"
           FORCE_POST: ${{ github.event.inputs.force_post == 'true' && '1' || '0' }}
