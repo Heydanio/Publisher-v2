@@ -1,0 +1,13 @@
+# Python
+__pycache__/
+*.py[cod]
+venv/
+.env
+
+# Secrets (TRÈS IMPORTANT)
+secrets/
+*.json
+
+# Temp
+*.mp4
+tmp/

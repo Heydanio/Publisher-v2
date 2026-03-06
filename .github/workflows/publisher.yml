@@ -1,0 +1,37 @@
+name: Auto-Publish Videos
+
+on:
+  schedule:
+    # Se lance toutes les heures à la minute 00
+    - cron: '0 * * * *'
+  workflow_dispatch: # Permet de le lancer manuellement pour tester
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          pip install google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client supabase
+          pip install oauth2client progressbar2
+          pip install "git+https://github.com/tokland/youtube-upload.git"
+
+      - name: Run Publisher
+        env:
+          # On récupère tes secrets sécurisés de GitHub
+          GDRIVE_SA_JSON_B64: ${{ secrets.GDRIVE_SA_JSON_B64 }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+          # Les accès YouTube (On va les mettre en Base64 aussi pour GitHub)
+          YT_CLIENT_SECRETS_B64: ${{ secrets.YT_CLIENT_SECRETS_B64 }}
+          YT_CREDENTIALS_B64: ${{ secrets.YT_CREDENTIALS_B64 }}
+          ACCOUNT_NAME: "youtube_compte1"
+        run: python src/main.py
