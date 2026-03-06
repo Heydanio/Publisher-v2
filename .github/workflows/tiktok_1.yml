@@ -29,8 +29,14 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: 🌐 Installation du moteur Playwright (Navigateur)
-        run: playwright install chromium --with-deps
+      - name: 🌐 Installation forcée du moteur Playwright
+        run: |
+          # On installe manuellement les dépendances qui posent problème sur Ubuntu 24.04
+          sudo apt-get update
+          sudo apt-get install -y libasound2t64
+          # On lance l'installateur de Playwright en ignorant les erreurs de dépendances système
+          # car on les a gérées au-dessus
+          playwright install chromiums
 
       - name: 🚀 Lancement du Bot TikTok
         env:
