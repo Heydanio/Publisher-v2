@@ -29,14 +29,21 @@ jobs:
           rm -rf upstream
           git clone https://github.com/makiisthenes/TiktokAutoUploader upstream
           
-          # Installation des dépendances
+          # Installation des dépendances (Patched)
           pip install --upgrade pip
           pip install "selenium>=4.20.0" undetected-chromedriver
           pip install -r upstream/requirements.txt --no-deps
           pip install requests requests-toolbelt browser-cookie3 fake-useragent google-api-python-client google-auth google-auth-oauthlib supabase moviepy==1.0.3
 
-          # Lien symbolique pour redresser la structure d'import
+          # Reconstruction de la structure de package
           ln -s upstream/tiktok_uploader tiktok_uploader 2>/dev/null || true
+          touch upstream/__init__.py
+          touch upstream/tiktok_uploader/__init__.py
+          
+          # Création du browser.js manquant (requis par le signataire Node)
+          mkdir -p tiktok_uploader/tiktok-signature
+          B64='REDACTED=='
+          echo "$B64" | base64 -d > tiktok_uploader/tiktok-signature/browser.js
           
           # Installation du signataire Node
           cd upstream/tiktok_uploader/tiktok-signature
