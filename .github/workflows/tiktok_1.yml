@@ -13,19 +13,31 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: 🟢 Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+
       - name: 🐍 Setup Python (3.10)
         uses: actions/setup-python@v5
         with:
           python_version: '3.10'
 
-      - name: 📥 Installer le moteur
+      - name: 📥 Installer le moteur et les dépendances réelles
         run: |
           git clone https://github.com/makiisthenes/TiktokAutoUploader.git engine
-          pip install requests requests-toolbelt browser-cookie3 fake-useragent google-api-python-client google-auth-httplib2 google-auth-oauthlib supabase
+          pip install --upgrade pip
+          # On installe TOUT ce qui a causé une erreur jusqu'ici
+          pip install requests requests-toolbelt browser-cookie3 fake-useragent 
+          pip install moviepy pytube requests-auth-aws-sigv4
+          pip install google-api-python-client google-auth-httplib2 google-auth-oauthlib supabase
+          
+          # Mock de ChromeDriver pour éviter Selenium
+          mkdir -p undetected_chromedriver
+          touch undetected_chromedriver/__init__.py
+          
+          # Signature Node
           cd engine/tiktok_uploader/tiktok-signature/ && npm install
           
       - name: 🚀 Run Publisher
