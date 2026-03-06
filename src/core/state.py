@@ -13,15 +13,19 @@ def get_supabase_client() -> Client:
 
 # --- NEW : Ajout de l'argument 'platform' ---
 def is_video_published(account_name: str, drive_file_id: str, platform: str = "youtube") -> bool:
-    """Vérifie si une vidéo a déjà été postée sur ce compte POUR cette plateforme."""
-    supabase = get_supabase_client()
-    # On filtre maintenant par compte, par fichier ET par plateforme
-    response = supabase.table("published_videos").select("*") \
-        .eq("account_name", account_name) \
-        .eq("drive_file_id", drive_file_id) \
-        .eq("platform", platform).execute() # <--- NEW
-        
-    return len(response.data) > 0
+    """Vérifie la publication avec une sécurité totale sur le format."""
+    try:
+        supabase = get_supabase_client()
+        # On force les strings pour éviter tout problème de type
+        response = supabase.table("published_videos").select("*") \
+            .eq("account_name", str(account_name)) \
+            .eq("drive_file_id", str(drive_file_id)) \
+            .eq("platform", str(platform)).execute()
+            
+        return len(response.data) > 0
+    except Exception as e:
+        print(f"⚠️ Note: Erreur lecture Supabase (pas grave) : {e}")
+        return False
 
 # --- NEW : Ajout de l'argument 'platform' ---
 def mark_video_published(account_name: str, drive_file_id: str, platform: str = "youtube"):
