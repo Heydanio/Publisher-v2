@@ -6,110 +6,104 @@ from playwright.sync_api import sync_playwright
 
 def upload_to_tiktok(config, video_path, video_title):
     """
-    Module TikTok Ultra-Sécurisé (Playwright Stealth).
-    Corrige automatiquement le format des cookies pour éviter les erreurs de format.
+    Module TikTok V2.1 - Spécial GitHub Actions (Tolérance Haute).
+    Gère les timeouts longs et nettoie les cookies automatiquement.
     """
     account_id = config.get("account_id", "default").upper()
-    # On récupère les cookies JSON depuis le secret GitHub
     cookies_raw = os.environ.get(f"TIKTOK_COOKIES_{account_id}")
 
     if not cookies_raw:
         print(f"❌ Erreur : Secret TIKTOK_COOKIES_{account_id} introuvable.")
         return False
 
-    print(f"🤖 [TikTok-Bot] Initialisation de l'upload pour {account_id}...")
+    print(f"🤖 [TikTok-Bot] Initialisation pour {account_id}...")
 
     with sync_playwright() as p:
-        # Lancement du navigateur (headless=True pour GitHub Actions)
+        # Lancement de Chromium
         browser = p.chromium.launch(headless=True)
         
-        # On définit un User-Agent moderne et une résolution standard
         context = browser.new_context(
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-            viewport={'width': 1280, 'height': 720}
+            viewport={'width': 1280, 'height': 800}
         )
 
-        # Injection et nettoyage des cookies
+        # Nettoyage et injection des cookies
         try:
             cookies = json.loads(cookies_raw)
-            
-            # --- NETTOYAGE DES COOKIES ---
             for cookie in cookies:
-                # Correction du sameSite (Playwright n'accepte que Strict, Lax ou None)
                 if cookie.get('sameSite') not in ['Strict', 'Lax', 'None']:
                     cookie['sameSite'] = 'Lax'
-                
-                # Conversion de l'expiration pour Playwright (expires doit être un int)
                 if 'expirationDate' in cookie:
                     cookie['expires'] = int(cookie['expirationDate'])
-                    # On ne supprime pas forcément expirationDate, mais on s'assure que expires est présent
-                
-                # Suppression des clés inutiles qui font parfois planter Playwright
                 if 'id' in cookie:
                     del cookie['id']
-
+            
             context.add_cookies(cookies)
-            print("✅ Cookies corrigés et chargés avec succès.")
+            print("✅ Cookies injectés et corrigés.")
         except Exception as e:
-            print(f"❌ Erreur format JSON des cookies : {e}")
+            print(f"❌ Erreur JSON Cookies : {e}")
             browser.close()
             return False
 
         page = context.new_page()
 
         try:
-            # 1. Aller sur le Creator Center (Upload)
-            print("🌐 Connexion à TikTok Creator Center...")
-            page.goto("https://www.tiktok.com/creator-center/upload?from=upload", wait_until="networkidle", timeout=90000)
+            # --- ÉTAPE 1 : CONNEXION ---
+            print("🌐 [1/5] Navigation vers TikTok Creator Center (Timeout 120s)...")
+            # 'commit' permet de continuer dès que le serveur répond, sans attendre les pubs/trackers
+            page.goto("https://www.tiktok.com/creator-center/upload?from=upload", wait_until="commit", timeout=120000)
             
-            # Délai aléatoire "humain"
-            time.sleep(random.uniform(5, 8))
+            print("⏳ Attente de l'élément d'upload...")
+            # On attend que l'input file soit réellement là
+            page.wait_for_selector('input[type="file"]', timeout=60000)
+            print("✅ Page prête !")
+            time.sleep(5)
 
-            # 2. Sélection du fichier vidéo
-            print(f"📤 Upload de la vidéo : {video_path.name}")
+            # --- ÉTAPE 2 : UPLOAD ---
+            print(f"📤 [2/5] Envoi du fichier : {video_path.name}")
             file_input = page.locator('input[type="file"]')
             file_input.set_input_files(str(video_path))
+            
+            print("⏳ Upload en cours sur TikTok (Attente de l'interface d'édition)...")
+            # On attend que la zone de texte apparaisse (signe que l'upload est bien engagé)
+            page.wait_for_selector('div.public-DraftEditor-content', timeout=180000)
+            print("✅ Fichier reçu par TikTok !")
 
-            # 3. Attendre le chargement
-            print("⏳ Téléchargement en cours (attente de 30s)...")
-            time.sleep(30) 
-
-            # 4. Ajouter la légende (Titre + Hashtags)
-            print("📝 Rédaction de la légende...")
-            # TikTok utilise un éditeur Draft.js, on clique et on tape
+            # --- ÉTAPE 3 : LÉGENDE ---
+            print("📝 [3/5] Configuration de la légende...")
             caption_box = page.locator('div.public-DraftEditor-content')
             caption_box.click()
             
-            # Nettoyage du titre (on enlève l'extension .mp4 si présente)
             clean_title = video_title.replace(".mp4", "")
             tags = " ".join(config.get("tags", ["#fyp", "#viral"]))
             full_text = f"{clean_title} {tags}"
             
             page.keyboard.type(full_text)
-            time.sleep(2)
+            print(f"✍️ Texte : {full_text}")
+            time.sleep(3)
 
-            # 5. Cliquer sur Publier
-            print("🚀 Publication finale...")
-            # On cherche le bouton Post qui est parfois dans une iframe ou complexe
+            # --- ÉTAPE 4 : PUBLICATION ---
+            print("🚀 [4/5] Clic sur POST...")
+            # On cherche le bouton Post (parfois il y en a plusieurs, on prend le premier visible)
             publish_button = page.get_by_role("button", name="Post").first
-            publish_button.wait_for(state="visible")
+            publish_button.wait_for(state="visible", timeout=30000)
             
-            # Petit délai avant le clic final
             time.sleep(2)
             publish_button.click()
 
-            # Attendre confirmation
-            print("⏳ Vérification du succès...")
-            time.sleep(15)
+            # --- ÉTAPE 5 : CONFIRMATION ---
+            print("⏳ [5/5] Attente du message de confirmation...")
+            # On attend 20 secondes pour laisser le temps à TikTok de traiter
+            time.sleep(20)
             
             print(f"✅ TikTok : {account_id} a publié avec succès !")
             return True
 
         except Exception as e:
             print(f"🔥 Erreur pendant l'exécution : {e}")
-            # Capture d'écran pour voir ce qui bloque sur GitHub
+            # Très important pour comprendre si c'est un captcha
             page.screenshot(path="debug_tiktok_error.png")
-            print("📸 Capture d'écran 'debug_tiktok_error.png' générée.")
+            print("📸 Capture d'écran de l'erreur sauvegardée.")
             return False
         finally:
             browser.close()
