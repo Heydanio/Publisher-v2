@@ -29,13 +29,13 @@ jobs:
           rm -rf upstream
           git clone https://github.com/makiisthenes/TiktokAutoUploader upstream
           
-          # Installation des dépendances (Méthode de ton fichier fonctionnel)
+          # Installation des dépendances
           pip install --upgrade pip
           pip install "selenium>=4.20.0" undetected-chromedriver
           pip install -r upstream/requirements.txt --no-deps
           pip install requests requests-toolbelt browser-cookie3 fake-useragent google-api-python-client google-auth google-auth-oauthlib supabase moviepy==1.0.3
 
-          # LE PATCH CRUCIAL : Lien symbolique pour que l'import fonctionne
+          # Lien symbolique pour redresser la structure d'import
           ln -s upstream/tiktok_uploader tiktok_uploader 2>/dev/null || true
           
           # Installation du signataire Node
@@ -44,7 +44,6 @@ jobs:
 
       - name: 🚀 Run Publisher
         env:
-          # On inclut upstream au PYTHONPATH
           PYTHONPATH: .:${{ github.workspace }}/upstream
           ACCOUNT_NAME: "tiktok_1"
           FORCE_POST: ${{ github.event.inputs.force_post == 'true' && '1' || '0' }}

@@ -1,22 +1,22 @@
 import os
 import json
 import sys
-import subprocess
 
 def upload_to_tiktok(config, video_path, video_title):
     # --- CONFIGURATION DES CHEMINS ---
     current_dir = os.getcwd()
-    # Le workflow a créé un lien symbolique 'tiktok_uploader' vers 'upstream/tiktok_uploader'
+    upstream_path = os.path.join(current_dir, "upstream")
     
+    if upstream_path not in sys.path:
+        sys.path.insert(0, upstream_path)
+
     try:
-        # Import direct grâce au lien symbolique
-        from tiktok_uploader.tiktok import Tiktok
-        print("✅ Moteur Tiktok V2 (Upstream) chargé via lien symbolique.")
+        # Import de la fonction d'upload au lieu de la classe
+        from tiktok_uploader.uploader import upload_video
+        print("✅ Moteur Makiisthenes chargé (Fonction upload_video).")
     except Exception as e:
         print(f"🔥 Erreur d'importation : {e}")
-        # Tentative de secours via le dossier upstream direct
-        sys.path.append(os.path.join(current_dir, "upstream"))
-        from tiktok_uploader.tiktok import Tiktok
+        return False
 
     # --- PRÉPARATION ---
     account_id = config.get("account_id", "default").upper()
@@ -26,29 +26,34 @@ def upload_to_tiktok(config, video_path, video_title):
         print(f"❌ Erreur : Secret TIKTOK_COOKIES_{account_id} introuvable.")
         return False
 
-    # Le moteur cherche les cookies dans CookiesDir par défaut
+    # Dossier pour les cookies comme attendu par le moteur
     os.makedirs("CookiesDir", exist_ok=True)
     cookie_file = os.path.join("CookiesDir", f"cookies_{account_id}.json")
     with open(cookie_file, 'w') as f:
         f.write(cookies_raw)
 
-    description = f"{video_title.replace('.mp4', '')} {' '.join(config.get('tags', ['#fyp']))}"
+    # Nettoyage du titre pour la description
+    clean_title = video_title.replace(".mp4", "")
+    tags = config.get("tags", ["#fyp", "#viral"])
+    description = f"{clean_title} {' '.join(tags)}"
 
     # --- EXECUTION ---
     try:
-        print(f"🚀 [Makiisthenes] Upload en cours : {video_path.name}")
+        print(f"🚀 [Makiisthenes] Upload de : {video_path.name}")
         
-        # On initialise comme dans ton ancien runner
-        bot = Tiktok(cookies=cookie_file)
-        
-        # Lancement de l'upload
-        bot.upload_video(
+        # Appel de la fonction officielle du repo
+        success = upload_video(
             filename=str(video_path),
-            description=description
+            description=description,
+            cookies=cookie_file
         )
         
-        print(f"✅ Vidéo envoyée à TikTok !")
-        return True
+        if success:
+            print(f"✅ Vidéo envoyée à TikTok !")
+            return True
+        else:
+            print("❌ Le moteur a retourné un échec.")
+            return False
 
     except Exception as e:
         print(f"❌ Erreur pendant l'exécution : {e}")
