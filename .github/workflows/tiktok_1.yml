@@ -2,16 +2,17 @@ name: Bot TikTok 1 - Pro
 
 on:
   schedule:
-    # 🕒 Réveil automatique (Heures UTC)
-    # Ex: '10 10,16,19 * * *' lancera le bot à 11h10, 17h10 et 20h10 (Heure Paris Hiver)
     - cron: '10 10,16,19 * * *' 
-  workflow_dispatch:      # Permet de lancer le bot manuellement pour tester
+  workflow_dispatch:      # 👈 C'est ici qu'on ajoute l'option du bouton
+    inputs:
+      force_post:
+        description: 'Forcer la publication immédiate ?'
+        type: boolean
+        default: false
 
 jobs:
   publish:
     runs-on: ubuntu-latest
-    
-    # Sécurité pour permettre au bot d'écrire si besoin (Keep-Alive)
     permissions:
       contents: write
 
@@ -24,30 +25,25 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: 📦 Installation des dépendances Python
+      - name: 📦 Installation des dépendances
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
       - name: 🌐 Installation forcée du moteur Playwright
         run: |
-          # On installe manuellement les dépendances qui posent problème sur Ubuntu 24.04
           sudo apt-get update
           sudo apt-get install -y libasound2t64
-          # On lance l'installateur de Playwright en ignorant les erreurs de dépendances système
-          # car on les a gérées au-dessus
           playwright install chromium
 
       - name: 🚀 Lancement du Bot TikTok
         env:
-          # --- Identification du compte ---
           ACCOUNT_NAME: "tiktok_1"
+          # 👈 On récupère la valeur du bouton coché ici :
+          FORCE_POST: ${{ github.event.inputs.force_post == 'true' && '1' || '0' }}
           
-          # --- Secrets spécifiques à TikTok 1 ---
           DRIVE_FOLDER_ID: ${{ secrets.DRIVE_FOLDER_ID_TT_1 }}
           TIKTOK_COOKIES_TIKTOK_1: ${{ secrets.TIKTOK_COOKIES_TIKTOK_1 }}
-          
-          # --- Secrets communs (Google Drive & Database) ---
           GDRIVE_SA_JSON_B64: ${{ secrets.GDRIVE_SA_JSON_B64 }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
