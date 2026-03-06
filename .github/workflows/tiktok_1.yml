@@ -1,58 +1,48 @@
-name: Bot TikTok 1 - Pro
+name: Bot TikTok 1 - Direct Booster
 
 on:
   schedule:
-    - cron: '10 10,16,19 * * *' 
-  workflow_dispatch:      # 👈 C'est ici qu'on ajoute l'option du bouton
+    - cron: '0 * * * *' # Tourne toutes les heures
+  workflow_dispatch:
     inputs:
       force_post:
-        description: 'Forcer la publication immédiate ?'
-        type: boolean
-        default: false
+        description: 'Forcer la publication immédiate'
+        required: false
+        default: 'false'
 
 jobs:
   publish:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-
     steps:
-      - name: 📥 Récupération du code
+      - name: 📥 Checkout Code
         uses: actions/checkout@v4
 
-      - name: 🐍 Installation de Python
-        uses: actions/setup-python@v4
+      - name: 🐍 Setup Python
+        uses: actions/setup-python@v5
         with:
-          python-version: '3.10'
+          python_version: '3.10'
+          cache: 'pip'
 
-      - name: 📦 Installation des dépendances
+      - name: 📦 Install Dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: 🌐 Installation forcée du moteur Playwright
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libasound2t64
-          playwright install chromium
-
-      - name: 🚀 Lancement du Bot TikTok
+      - name: 🚀 Run Publisher
         env:
           ACCOUNT_NAME: "tiktok_1"
-          # 👈 On récupère la valeur du bouton coché ici :
           FORCE_POST: ${{ github.event.inputs.force_post == 'true' && '1' || '0' }}
-          
           DRIVE_FOLDER_ID: ${{ secrets.DRIVE_FOLDER_ID }}
-          TIKTOK_COOKIES_TIKTOK_1: ${{ secrets.TIKTOK_COOKIES_TIKTOK_1 }}
           GDRIVE_SA_JSON_B64: ${{ secrets.GDRIVE_SA_JSON_B64 }}
+          TIKTOK_COOKIES_TIKTOK_1: ${{ secrets.TIKTOK_COOKIES_TIKTOK_1 }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: python src/main.py
 
-      - name: Upload Screenshot on Failure
+      - name: 📸 Upload Debug Screenshot (If any)
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: tiktok-error-screenshot
-          path: debug_tiktok_error.png
+          name: debug-results
+          path: "*.png"
