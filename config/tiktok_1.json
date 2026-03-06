@@ -1,0 +1,11 @@
+{
+    "account_id": "tiktok_1",
+    "username": "@asterionmeme_",
+    "platform": "tiktok",
+    "drive_folder_id": "SECRET_DRIVE_FOLDER_ID",
+    "language": "fr-FR",
+    "tags": ["#asterion", "#meme", "#humour", "#drole", "#fyp", "#france"],
+    "schedule": {
+        "slots_hours": [11, 18, 21]
+    }
+}
