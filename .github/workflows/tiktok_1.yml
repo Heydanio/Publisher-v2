@@ -22,32 +22,45 @@ jobs:
       - name: 🐍 Setup Python
         uses: actions/setup-python@v5
         with:
-          python_version: "3.11"
+          python-version: "3.11"
 
-      - name: 📥 Clone et Patch Moteur (Logic Upstream)
+      - name: 📥 Clone et Patch Moteur (Copie exacte de l'ancien workflow)
         run: |
           rm -rf upstream
           git clone https://github.com/makiisthenes/TiktokAutoUploader upstream
           
-          # Installation des dépendances (Patched)
-          pip install --upgrade pip
+          # Installations Python
+          python -m pip install --upgrade pip
           pip install "selenium>=4.20.0" undetected-chromedriver
           pip install -r upstream/requirements.txt --no-deps
-          pip install requests requests-toolbelt browser-cookie3 fake-useragent google-api-python-client google-auth google-auth-oauthlib supabase moviepy==1.0.3
-
-          # Reconstruction de la structure de package
-          ln -s upstream/tiktok_uploader tiktok_uploader 2>/dev/null || true
-          touch upstream/__init__.py
-          touch upstream/tiktok_uploader/__init__.py
+          pip install google-api-python-client google-auth google-auth-oauthlib supabase
           
-          # Création du browser.js manquant (requis par le signataire Node)
+          # Reconstruction du lien symbolique
+          ln -s upstream/tiktok_uploader tiktok_uploader 2>/dev/null || true
           mkdir -p tiktok_uploader/tiktok-signature
+          
+          # Patch du browser.js
           B64='Y29uc3QgU2lnbmVyID0gcmVxdWlyZSgnLi9pbmRleCcpOwpjb25zdCB1cmwgPSBwcm9jZXNzLmFyZ3ZbMl07CmNvbnN0IHVzZXJBZ2VudCA9IHByb2Nlc3MuYXJndlszXTsKCihhc3luYyBmdW5jdGlvbiBtYWluKCkgewogIHRyeSB7CiAgICBjb25zdCBzaWduZXIgPSBuZXcgU2lnbmVyKHVybCwgdXNlckFnZW50KTsKICAgIGF3YWl0IHNpZ25lci5pbml0KCk7CiAgICBjb25zdCBzaWduID0gYXdhaXQgc2lnbmVyLnNpZ24odXJsKTsKICAgIGNvbnN0IG5hdmlnYXRvciA9IGF3YWl0IHNpZ25lci5uYXZpZ2F0b3IoKTsKICAgIGNvbnN0IG91dHB1dCA9IEpTT04uc3RyaW5naWZ5KHsKICAgICAgc3RhdHVzOiAib2siLAogICAgICBkYXRhOiB7IC4uLnNpZ24sIG5hdmlnYXRvciB9CiAgICB9KTsKICAgIGNvbnNvbGUubG9nKG91dHB1dCk7CiAgICBhd2FpdCBzaWduZXIuY2xvc2UoKTsKICB9IGNhdGNoIChlcnIpIHsKICAgIGNvbnNvbGUuZXJyb3IoZXJyKTsKICAgIHByb2Nlc3MuZXhpdCgxKTsKICB9Cn0pKCk7Cg=='
           echo "$B64" | base64 -d > tiktok_uploader/tiktok-signature/browser.js
           
-          # Installation du signataire Node
+          # Build npm
           cd upstream/tiktok_uploader/tiktok-signature
           npm install
+
+      - name: ⚙️ Create config.txt (Comme l'ancien workflow)
+        run: |
+          echo 'COOKIES_DIR=./CookiesDir' > config.txt
+          echo 'VIDEOS_DIR=./VideosDirPath' >> config.txt
+          echo 'POST_PROCESSING_VIDEO_PATH=./VideosDirPath' >> config.txt
+          echo 'IMAGEMAGICK_FONT=Arial' >> config.txt
+          echo 'IMAGEMAGICK_FONT_SIZE=80' >> config.txt
+          echo 'IMAGEMAGICK_TEXT_FOREGROUND_COLOR=white' >> config.txt
+          echo 'IMAGEMAGICK_TEXT_BACKGROUND_COLOR=black' >> config.txt
+          echo 'TMP_YOUTUBE_VIDEO_DIR=' >> config.txt
+          echo 'LANG=en' >> config.txt
+          echo 'TIKTOK_BASE_URL=https://www.tiktok.com/upload?lang=' >> config.txt
+          echo 'IMAGEMAGICK_BINARY=' >> config.txt
+          cp config.txt upstream/config.txt
 
       - name: 🚀 Run Publisher
         env:
