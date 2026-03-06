@@ -24,12 +24,12 @@ jobs:
         with:
           python_version: '3.10'
 
-      - name: 📥 Installer le moteur Makiisthenes (Smart)
+      - name: 📥 Installer le moteur Makiisthenes (Force)
         run: |
           git clone https://github.com/makiisthenes/TiktokAutoUploader.git engine
-          # Installation des dépendances de base
-          pip install requests requests-toolbelt browser-cookie3 fake-useragent
-          # 🪄 ASTUCE : Créer un faux module undetected_chromedriver pour éviter l'erreur d'import
+          # Installation des dépendances qui bloquent les imports
+          pip install requests requests-toolbelt browser-cookie3 fake-useragent moviepy
+          # Mock du module manquant précédent
           mkdir -p undetected_chromedriver
           touch undetected_chromedriver/__init__.py
           # Installation de la signature Node

@@ -1,57 +1,52 @@
 import os
 import json
 import sys
-
-# 1. On prépare le terrain pour les imports
-current_dir = os.getcwd()
-engine_path = os.path.join(current_dir, "engine")
-
-# On ajoute le dossier actuel (où on a créé le faux undetected_chromedriver) 
-# et le dossier engine au chemin système
-if current_dir not in sys.path:
-    sys.path.insert(0, current_dir)
-if engine_path not in sys.path:
-    sys.path.insert(1, engine_path)
-
-# 2. Import du moteur
-try:
-    from tiktok_uploader.uploader import upload_video
-    print("✅ Moteur chargé avec succès.")
-except Exception as e:
-    print(f"⚠️ Note : Import direct échoué, tentative via engine... ({e})")
-    from engine.tiktok_uploader.uploader import upload_video
+import importlib.util
 
 def upload_to_tiktok(config, video_path, video_title):
+    # --- CONFIGURATION DU MOTEUR ---
+    engine_dir = os.path.join(os.getcwd(), "engine")
+    uploader_path = os.path.join(engine_dir, "tiktok_uploader", "uploader.py")
+    
+    # Ajout au path pour que uploader.py trouve ses voisins
+    if engine_dir not in sys.path:
+        sys.path.insert(0, engine_dir)
+    
+    # Import dynamique du fichier uploader.py uniquement
+    spec = importlib.util.spec_from_file_location("uploader", uploader_path)
+    uploader = importlib.util.module_from_spec(spec)
+    
+    # Hack pour éviter que uploader.py ne fasse planter l'import de ses propres dépendances
+    sys.modules["uploader"] = uploader
+    
+    try:
+        spec.loader.exec_module(uploader)
+        print("✅ Moteur d'upload (Uploader.py) chargé.")
+    except Exception as e:
+        print(f"🔥 Erreur lors du chargement chirurgical du moteur : {e}")
+        return False
+
+    # --- PREPARATION DE L'UPLOAD ---
     account_id = config.get("account_id", "default").upper()
     cookies_raw = os.environ.get(f"TIKTOK_COOKIES_{account_id}")
-
-    if not cookies_raw:
-        print(f"❌ Erreur : Secret TIKTOK_COOKIES_{account_id} introuvable.")
-        return False
 
     cookie_file = f"cookies_{account_id}.json"
     with open(cookie_file, 'w') as f:
         f.write(cookies_raw)
 
-    print(f"🚀 [Makiisthenes-Engine] Lancement de l'upload réel...")
-    
-    # Préparation de la légende
-    tags = config.get("tags", ["#fyp"])
-    description = f"{video_title.replace('.mp4', '')} {' '.join(tags)}"
+    description = f"{video_title.replace('.mp4', '')} {' '.join(config.get('tags', ['#fyp']))}"
 
     try:
-        # On appelle le moteur. Le uploader.py de makiisthenes 
-        # utilise les signatures Node.js en arrière-plan.
-        success = upload_video(
+        print(f"🚀 Lancement de l'upload via Makiisthenes Engine...")
+        # On appelle la fonction du module chargé dynamiquement
+        success = uploader.upload_video(
             filename=str(video_path),
             description=description,
             cookies=cookie_file
         )
-        
         return success
-            
     except Exception as e:
-        print(f"🔥 Erreur pendant l'exécution du moteur : {e}")
+        print(f"❌ Erreur exécution moteur : {e}")
         return False
     finally:
         if os.path.exists(cookie_file):
