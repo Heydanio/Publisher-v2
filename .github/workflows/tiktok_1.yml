@@ -37,6 +37,8 @@ jobs:
 
       - name: 🚀 Run Publisher
         env:
+          # On dit à Python de regarder dans le dossier racine ET dans le dossier engine
+          PYTHONPATH: .:${{ github.workspace }}/engine
           ACCOUNT_NAME: "tiktok_1"
           FORCE_POST: ${{ github.event.inputs.force_post == 'true' && '1' || '0' }}
           DRIVE_FOLDER_ID: ${{ secrets.DRIVE_FOLDER_ID }}
