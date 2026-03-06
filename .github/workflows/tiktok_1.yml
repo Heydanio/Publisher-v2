@@ -1,12 +1,16 @@
-name: Bot TikTok 1 - Makiisthenes V2
+name: Bot TikTok 
 
 on:
+  schedule:
+    # Heures UTC (8=9h, 11=12h, 14=15h, 16=17h, 19=20h en heure d'hiver FR)
+    - cron: '0 8,11,14,16,19 * * *'
   workflow_dispatch:
     inputs:
       force_post:
-        description: 'Forcer la publication'
+        description: 'Forcer un post immédiat'
         required: false
-        default: 'false'
+        type: boolean
+        default: false
 
 jobs:
   publish:
@@ -24,30 +28,26 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: 📥 Clone et Patch Moteur (Copie exacte de l'ancien workflow)
+      - name: 📥 Clone et Patch Moteur
         run: |
           rm -rf upstream
           git clone https://github.com/makiisthenes/TiktokAutoUploader upstream
           
-          # Installations Python
           python -m pip install --upgrade pip
           pip install "selenium>=4.20.0" undetected-chromedriver
           pip install -r upstream/requirements.txt --no-deps
           pip install google-api-python-client google-auth google-auth-oauthlib supabase
           
-          # Reconstruction du lien symbolique
           ln -s upstream/tiktok_uploader tiktok_uploader 2>/dev/null || true
           mkdir -p tiktok_uploader/tiktok-signature
           
-          # Patch du browser.js
           B64='Y29uc3QgU2lnbmVyID0gcmVxdWlyZSgnLi9pbmRleCcpOwpjb25zdCB1cmwgPSBwcm9jZXNzLmFyZ3ZbMl07CmNvbnN0IHVzZXJBZ2VudCA9IHByb2Nlc3MuYXJndlszXTsKCihhc3luYyBmdW5jdGlvbiBtYWluKCkgewogIHRyeSB7CiAgICBjb25zdCBzaWduZXIgPSBuZXcgU2lnbmVyKHVybCwgdXNlckFnZW50KTsKICAgIGF3YWl0IHNpZ25lci5pbml0KCk7CiAgICBjb25zdCBzaWduID0gYXdhaXQgc2lnbmVyLnNpZ24odXJsKTsKICAgIGNvbnN0IG5hdmlnYXRvciA9IGF3YWl0IHNpZ25lci5uYXZpZ2F0b3IoKTsKICAgIGNvbnN0IG91dHB1dCA9IEpTT04uc3RyaW5naWZ5KHsKICAgICAgc3RhdHVzOiAib2siLAogICAgICBkYXRhOiB7IC4uLnNpZ24sIG5hdmlnYXRvciB9CiAgICB9KTsKICAgIGNvbnNvbGUubG9nKG91dHB1dCk7CiAgICBhd2FpdCBzaWduZXIuY2xvc2UoKTsKICB9IGNhdGNoIChlcnIpIHsKICAgIGNvbnNvbGUuZXJyb3IoZXJyKTsKICAgIHByb2Nlc3MuZXhpdCgxKTsKICB9Cn0pKCk7Cg=='
           echo "$B64" | base64 -d > tiktok_uploader/tiktok-signature/browser.js
           
-          # Build npm
           cd upstream/tiktok_uploader/tiktok-signature
           npm install
 
-      - name: ⚙️ Create config.txt (Comme l'ancien workflow)
+      - name: ⚙️ Create config.txt
         run: |
           echo 'COOKIES_DIR=./CookiesDir' > config.txt
           echo 'VIDEOS_DIR=./VideosDirPath' >> config.txt
@@ -62,11 +62,22 @@ jobs:
           echo 'IMAGEMAGICK_BINARY=' >> config.txt
           cp config.txt upstream/config.txt
 
+      # --- 🪄 L'ASTUCE DU DÉLAI ALÉATOIRE EST ICI ---
+      - name: 🎲 Délai Aléatoire (Anti-Robot)
+        # S'active UNIQUEMENT si c'est le déclencheur automatique (cron)
+        if: ${{ github.event_name == 'schedule' }}
+        run: |
+          # Génère un nombre entre 0 et 2700 secondes (0 à 45 minutes)
+          DELAY=$((RANDOM % 2700))
+          MINUTES=$((DELAY / 60))
+          echo "Attente de $MINUTES minutes et quelques secondes pour simuler un comportement humain..."
+          sleep $DELAY
+
       - name: 🚀 Run Publisher
         env:
           PYTHONPATH: .:${{ github.workspace }}/upstream
           ACCOUNT_NAME: "tiktok_1"
-          FORCE_POST: ${{ github.event.inputs.force_post == 'true' && '1' || '0' }}
+          FORCE_POST: ${{ inputs.force_post == true && '1' || '0' }}
           DRIVE_FOLDER_ID: ${{ secrets.DRIVE_FOLDER_ID }}
           GDRIVE_SA_JSON_B64: ${{ secrets.GDRIVE_SA_JSON_B64 }}
           TIKTOK_COOKIES_TIKTOK_1: ${{ secrets.TIKTOK_COOKIES_TIKTOK_1 }}
