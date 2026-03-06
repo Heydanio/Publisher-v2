@@ -24,12 +24,15 @@ jobs:
         with:
           python_version: '3.10'
 
-      - name: 📥 Installer le moteur Makiisthenes (Light)
+      - name: 📥 Installer le moteur Makiisthenes (Smart)
         run: |
           git clone https://github.com/makiisthenes/TiktokAutoUploader.git engine
-          # Installation des dépendances requises par le moteur
+          # Installation des dépendances de base
           pip install requests requests-toolbelt browser-cookie3 fake-useragent
-          # Installation de la signature Node (Crucial)
+          # 🪄 ASTUCE : Créer un faux module undetected_chromedriver pour éviter l'erreur d'import
+          mkdir -p undetected_chromedriver
+          touch undetected_chromedriver/__init__.py
+          # Installation de la signature Node
           cd engine/tiktok_uploader/tiktok-signature/ && npm install
 
       - name: 📦 Installer tes dépendances
