@@ -1,9 +1,9 @@
-name: Auto-Publish Videos (YouTube)
+name: Bot YouTube
 
 on:
   schedule:
-    # Se lance toutes les heures à la minute 00
-    - cron: '0 * * * *'
+    # Heures UTC (8=9h, 11=12h, 14=15h, 16=17h, 19=20h en heure d'hiver FR)
+    - cron: '0 8,11,14,16,19 * * *'
   workflow_dispatch:
     inputs:
       force_post:
@@ -30,21 +30,24 @@ jobs:
           pip install oauth2client progressbar2
           pip install "git+https://github.com/tokland/youtube-upload.git"
 
-      - name: Run Publisher
+      # --- 🪄 L'ASTUCE DU DÉLAI ALÉATOIRE EST ICI ---
+      - name: 🎲 Délai Aléatoire (Anti-Robot)
+        if: ${{ github.event_name == 'schedule' }}
+        run: |
+          DELAY=$((RANDOM % 2700))
+          MINUTES=$((DELAY / 60))
+          echo "Attente de $MINUTES minutes et quelques secondes pour simuler un comportement humain..."
+          sleep $DELAY
+
+      - name: 🚀 Run Publisher
         env:
           FORCE_POST: ${{ inputs.force_post == true && '1' || '0' }}
           ACCOUNT_NAME: "youtube_compte1"
-          
-          # --- LES VARIABLES QUI MANQUAIENT 👇 ---
           DRIVE_FOLDER_ID: ${{ secrets.DRIVE_FOLDER_ID }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
-          # ----------------------------------------
-          
           GDRIVE_SA_JSON_B64: ${{ secrets.GDRIVE_SA_JSON_B64 }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-          
-          # Accès YouTube
           YT_CLIENT_SECRETS_B64: ${{ secrets.YT_CLIENT_SECRETS_B64 }}
           YT_CREDENTIALS_B64: ${{ secrets.YT_CREDENTIALS_B64 }}
         run: python src/main.py
