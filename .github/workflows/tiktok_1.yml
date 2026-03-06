@@ -13,26 +13,19 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: 🟢 Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-
-      - name: 🐍 Setup Python (Stable 3.10)
+      - name: 🐍 Setup Python (3.10)
         uses: actions/setup-python@v5
         with:
           python_version: '3.10'
 
-      - name: 📥 Installer le moteur Makiisthenes
+      - name: 📥 Installer le moteur
         run: |
           git clone https://github.com/makiisthenes/TiktokAutoUploader.git engine
-          # Installation du strict nécessaire pour éviter les conflits
-          pip install --upgrade pip
-          pip install requests requests-toolbelt browser-cookie3 fake-useragent
-          pip install google-api-python-client google-auth-httplib2 google-auth-oauthlib supabase
-          
-          # Installation du signataire Node.js (Crucial pour les signatures TikTok)
+          pip install requests requests-toolbelt browser-cookie3 fake-useragent google-api-python-client google-auth-httplib2 google-auth-oauthlib supabase
           cd engine/tiktok_uploader/tiktok-signature/ && npm install
           
       - name: 🚀 Run Publisher
