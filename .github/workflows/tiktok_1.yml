@@ -24,15 +24,20 @@ jobs:
         with:
           python_version: '3.10'
 
-      - name: 📥 Installer le moteur Makiisthenes (Force)
+      - name: 📥 Installer le moteur Makiisthenes (Total)
         run: |
           git clone https://github.com/makiisthenes/TiktokAutoUploader.git engine
-          # Installation des dépendances vitales pour le moteur v2.0
-          pip install requests requests-toolbelt browser-cookie3 fake-useragent moviepy
-          # Mock du module chrome pour éviter d'autres erreurs inutiles
+          # Installation forcée des dépendances une par une pour éviter les conflits
+          pip install --upgrade pip
+          pip install requests requests-toolbelt browser-cookie3 fake-useragent
+          pip install "moviepy<2.0.0"  # Version stable souvent requise par les vieux scripts
+          pip install decorator # Parfois requis par moviepy
+          
+          # Mock du module manquant pour éviter Selenium
           mkdir -p undetected_chromedriver
           touch undetected_chromedriver/__init__.py
-          # Installation de la signature Node (Le moteur en a besoin pour X-Bogus)
+          
+          # Installation de la signature Node
           cd engine/tiktok_uploader/tiktok-signature/ && npm install
 
       - name: 📦 Installer tes dépendances
