@@ -60,15 +60,19 @@ def main():
 
     if not force_post:
         if not is_time_to_post:
+            # Optionnel : send_discord_notification(f"💤 **{account_id}** : En veille ({current_hour}h).")
             print(f"⏳ Pas de publication prévue à {current_hour}h.")
             return
+        
         if not is_within_margin:
+            send_discord_notification(f"⏰ **{account_id}** : Créneau de {current_hour}h raté (trop de retard GitHub).")
             print(f"⏳ Créneau de {current_hour}h presque fini.")
             return
 
         # --- SIMULATION HUMAINE (Délai aléatoire) ---
         wait_min = random.randint(1, 20)
-        print(f"🎲 Jitter : Attente de {wait_min} minutes pour varier l'heure de post...")
+        send_discord_notification(f"🎲 **{account_id}** : Créneau {current_hour}h détecté ! Attente de `{wait_min} min` avant postage...")
+        print(f"🎲 Jitter : Attente de {wait_min} minutes...")
         time.sleep(wait_min * 60)
         
         # Recalcul de l'heure après attente
@@ -78,27 +82,36 @@ def main():
 
     print(f"✅ Mode publication activé pour {account_id} !")
 
+    # --- RECHERCHE DE VIDÉO ---
     video = get_unpublished_video(account_name, folder_ids)
     if not video:
+        send_discord_notification(f"⚠️ **{account_id}** : C'est l'heure, mais le **Drive est vide** ! 😱")
         print("🛑 Aucune vidéo inédite trouvée.")
         return
 
+    # --- TÉLÉCHARGEMENT ---
     tmpdir = Path(tempfile.mkdtemp())
     local_video_path = tmpdir / video["name"]
     download_video(video["id"], local_video_path)
 
+    # --- UPLOAD ---
     if platform == "youtube":
         success = upload_to_youtube(config, local_video_path, video["name"])
         if success:
             mark_video_published(account_name, video["id"])
             send_discord_notification(
-                f"✅ **PUBLICATION RÉUSSIE**\n📺 **Chaîne :** {account_id}\n🎬 **Vidéo :** `{video['name']}`\n⏰ **Heure :** {current_hour}h{current_min:02d}"
+                f"✅ **PUBLICATION RÉUSSIE**\n"
+                f"📺 **Chaîne :** {account_id}\n"
+                f"🎬 **Vidéo :** `{video['name']}`\n"
+                f"⏰ **Heure :** {current_hour}h{current_min:02d}"
             )
         else:
-            send_discord_notification(f"⚠️ **ÉCHEC PUBLICATION** sur {account_id}")
+            send_discord_notification(f"❌ **ERREUR** : L'upload YouTube a échoué pour **{account_id}** (`{video['name']}`).")
 
+    # --- NETTOYAGE ---
     if local_video_path.exists():
         os.remove(local_video_path)
+        print("🧹 Fichier temporaire supprimé.")
 
 if __name__ == "__main__":
     main()
