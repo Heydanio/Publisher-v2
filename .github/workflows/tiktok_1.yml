@@ -19,29 +19,24 @@ jobs:
         with:
           node-version: '20'
 
-      - name: 🐍 Setup Python
+      - name: 🐍 Setup Python (Stable 3.10)
         uses: actions/setup-python@v5
         with:
           python_version: '3.10'
 
-      - name: 📥 Installer le moteur et TOUTES les dépendances
+      - name: 📥 Installer le moteur Makiisthenes
         run: |
           git clone https://github.com/makiisthenes/TiktokAutoUploader.git engine
-          # Installation des dépendances Python (Même les lourdes pour éviter les erreurs d'import)
+          # Installation du strict nécessaire pour éviter les conflits
           pip install --upgrade pip
-          pip install requests requests-toolbelt browser-cookie3 fake-useragent moviepy pytube
+          pip install requests requests-toolbelt browser-cookie3 fake-useragent
           pip install google-api-python-client google-auth-httplib2 google-auth-oauthlib supabase
           
-          # Mock de undetected_chromedriver car on ne veut pas de Selenium/Chrome
-          mkdir -p undetected_chromedriver
-          touch undetected_chromedriver/__init__.py
-          
-          # Installation du signataire Node.js (VITAL pour X-Bogus)
+          # Installation du signataire Node.js (Crucial pour les signatures TikTok)
           cd engine/tiktok_uploader/tiktok-signature/ && npm install
           
       - name: 🚀 Run Publisher
         env:
-          # On ajoute le dossier engine au chemin de recherche Python
           PYTHONPATH: .:${{ github.workspace }}/engine
           ACCOUNT_NAME: "tiktok_1"
           FORCE_POST: ${{ github.event.inputs.force_post == 'true' && '1' || '0' }}
