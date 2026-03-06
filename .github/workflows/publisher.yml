@@ -32,17 +32,19 @@ jobs:
 
       - name: Run Publisher
         env:
-          # On active le mode forcé si la case est cochée
           FORCE_POST: ${{ inputs.force_post == true && '1' || '0' }}
+          ACCOUNT_NAME: "youtube_compte1"
           
-          # On récupère tes secrets sécurisés de GitHub
+          # --- LES VARIABLES QUI MANQUAIENT 👇 ---
+          DRIVE_FOLDER_ID: ${{ secrets.DRIVE_FOLDER_ID }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          # ----------------------------------------
+          
           GDRIVE_SA_JSON_B64: ${{ secrets.GDRIVE_SA_JSON_B64 }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           
-          # Les accès YouTube (On va les mettre en Base64 aussi pour GitHub)
+          # Accès YouTube
           YT_CLIENT_SECRETS_B64: ${{ secrets.YT_CLIENT_SECRETS_B64 }}
           YT_CREDENTIALS_B64: ${{ secrets.YT_CREDENTIALS_B64 }}
-          
-          ACCOUNT_NAME: "youtube_compte1"
         run: python src/main.py
