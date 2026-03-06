@@ -1,37 +1,44 @@
 import os
 import json
 import sys
+import subprocess
 
 def upload_to_tiktok(config, video_path, video_title):
-    # --- 1. CONFIGURATION DU MOTEUR ---
+    # --- CONFIGURATION DES CHEMINS ---
     current_dir = os.getcwd()
-    engine_dir = os.path.join(current_dir, "engine")
+    # Le workflow a créé un lien symbolique 'tiktok_uploader' vers 'upstream/tiktok_uploader'
     
-    # Ajout des chemins pour le moteur Makiisthenes
-    if engine_dir not in sys.path:
-        sys.path.insert(0, engine_dir)
-        sys.path.insert(0, os.path.join(engine_dir, "tiktok_uploader"))
-
     try:
+        # Import direct grâce au lien symbolique
         from tiktok_uploader.tiktok import Tiktok
-        print("✅ Moteur Tiktok V2.0 chargé.")
+        print("✅ Moteur Tiktok V2 (Upstream) chargé via lien symbolique.")
     except Exception as e:
         print(f"🔥 Erreur d'importation : {e}")
-        return False
+        # Tentative de secours via le dossier upstream direct
+        sys.path.append(os.path.join(current_dir, "upstream"))
+        from tiktok_uploader.tiktok import Tiktok
 
-    # --- 2. PRÉPARATION ---
+    # --- PRÉPARATION ---
     account_id = config.get("account_id", "default").upper()
     cookies_raw = os.environ.get(f"TIKTOK_COOKIES_{account_id}")
-    
-    cookie_file = os.path.join(current_dir, f"cookies_{account_id}.json")
+
+    if not cookies_raw:
+        print(f"❌ Erreur : Secret TIKTOK_COOKIES_{account_id} introuvable.")
+        return False
+
+    # Le moteur cherche les cookies dans CookiesDir par défaut
+    os.makedirs("CookiesDir", exist_ok=True)
+    cookie_file = os.path.join("CookiesDir", f"cookies_{account_id}.json")
     with open(cookie_file, 'w') as f:
         f.write(cookies_raw)
 
     description = f"{video_title.replace('.mp4', '')} {' '.join(config.get('tags', ['#fyp']))}"
 
-    # --- 3. EXÉCUTION ---
+    # --- EXECUTION ---
     try:
-        print(f"🚀 [Makiisthenes-V2] Upload : {video_path.name}")
+        print(f"🚀 [Makiisthenes] Upload en cours : {video_path.name}")
+        
+        # On initialise comme dans ton ancien runner
         bot = Tiktok(cookies=cookie_file)
         
         # Lancement de l'upload
@@ -40,11 +47,11 @@ def upload_to_tiktok(config, video_path, video_title):
             description=description
         )
         
-        print(f"✅ Vidéo transmise avec succès !")
+        print(f"✅ Vidéo envoyée à TikTok !")
         return True
 
     except Exception as e:
-        print(f"❌ Erreur exécution : {e}")
+        print(f"❌ Erreur pendant l'exécution : {e}")
         return False
     finally:
         if os.path.exists(cookie_file):
