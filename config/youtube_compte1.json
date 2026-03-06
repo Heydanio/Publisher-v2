@@ -2,7 +2,7 @@
   "platform": "youtube",
   "account_id": "CHAsderion",
   "is_active": true,
-  "drive_folder_ids": ["1SP3lpDOah_kYRAD2NWOXembLSZI7MZtU"],
+  "drive_folder_ids": ["ENV_DRIVE_FOLDER_ID"],
   "schedule": {
     "slots_hours": [8, 11, 14, 17, 20],
     "minutes_grid": [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55],
