@@ -2,13 +2,17 @@ import os
 import json
 import sys
 
-# Plus besoin de sys.path.append si le PYTHONPATH est bien mis dans le YAML
+# On force l'ajout du chemin interne du moteur
+engine_path = os.path.join(os.getcwd(), "engine")
+if engine_path not in sys.path:
+    sys.path.append(engine_path)
+
 try:
     from tiktok_uploader.uploader import upload_video
-except ImportError:
-    # Au cas où le PYTHONPATH échoue, on garde une sécurité
-    sys.path.append(os.path.join(os.getcwd(), "engine"))
-    from tiktok_uploader.uploader import upload_video
+except ImportError as e:
+    print(f"❌ Erreur d'importation du moteur : {e}")
+    # On tente un import relatif si le premier échoue
+    from engine.tiktok_uploader.uploader import upload_video
 
 def upload_to_tiktok(config, video_path, video_title):
     account_id = config.get("account_id", "default").upper()

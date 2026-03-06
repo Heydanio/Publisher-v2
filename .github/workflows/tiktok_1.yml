@@ -27,8 +27,8 @@ jobs:
       - name: 📥 Installer le moteur Makiisthenes (Light)
         run: |
           git clone https://github.com/makiisthenes/TiktokAutoUploader.git engine
-          # On installe manuellement les vraies dépendances nécessaires
-          pip install requests requests-toolbelt browser-cookie3
+          # Installation des dépendances requises par le moteur
+          pip install requests requests-toolbelt browser-cookie3 fake-useragent
           # Installation de la signature Node (Crucial)
           cd engine/tiktok_uploader/tiktok-signature/ && npm install
 
