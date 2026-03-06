@@ -1,0 +1,24 @@
+name: Keep Alive Bot (Anti-Suspension)
+
+on:
+  schedule:
+    - cron: '0 0 1 * *' # Se lance automatiquement le 1er de chaque mois à minuit
+  workflow_dispatch:      # Permet de le lancer manuellement pour tester
+
+jobs:
+  keep_alive:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # Donne au bot le droit de modifier tes fichiers
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Update Activity Log
+        run: |
+          echo "Dernière activité automatique : $(date)" > last_activity.txt
+          git config --global user.name "GitHub Action Bot"
+          git config --global user.email "actions@github.com"
+          git add last_activity.txt
+          git commit -m "🤖 Maintenance : Réinitialisation du compteur 60 jours GitHub"
+          git push
