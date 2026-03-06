@@ -1,11 +1,14 @@
 import os
 import json
 import sys
-import shutil
 
-# On ajoute le dossier "engine" au chemin Python pour pouvoir l'utiliser
-sys.path.append(os.path.join(os.getcwd(), "engine"))
-from engine.tiktok_uploader.uploader import upload_video
+# Plus besoin de sys.path.append si le PYTHONPATH est bien mis dans le YAML
+try:
+    from tiktok_uploader.uploader import upload_video
+except ImportError:
+    # Au cas où le PYTHONPATH échoue, on garde une sécurité
+    sys.path.append(os.path.join(os.getcwd(), "engine"))
+    from tiktok_uploader.uploader import upload_video
 
 def upload_to_tiktok(config, video_path, video_title):
     account_id = config.get("account_id", "default").upper()
@@ -15,31 +18,30 @@ def upload_to_tiktok(config, video_path, video_title):
         print(f"❌ Erreur : Secret TIKTOK_COOKIES_{account_id} introuvable.")
         return False
 
-    # Le repo Makiisthenes a besoin d'un FICHIER de cookies, pas d'un texte
+    # Le moteur a besoin d'un fichier physique
     cookie_file = f"cookies_{account_id}.json"
     with open(cookie_file, 'w') as f:
         f.write(cookies_raw)
 
-    print(f"🚀 [Makiisthenes-Engine] Lancement de l'upload direct...")
+    print(f"🚀 [Makiisthenes-Engine] Lancement de l'upload réel...")
     
     tags = config.get("tags", ["#fyp"])
     description = f"{video_title.replace('.mp4', '')} {' '.join(tags)}"
 
     try:
-        # On appelle directement la fonction officielle du repo
-        # Elle va automatiquement appeler Node.js pour la signature
+        # APPEL DU VRAI MOTEUR
+        # success est True si la vidéo est postée
         success = upload_video(
             filename=str(video_path),
             description=description,
-            cookies=cookie_file,
-            session_id=None # On utilise les cookies à la place
+            cookies=cookie_file
         )
         
         if success:
-            print(f"✅ TikTok : Publication réussie avec signatures Node.js !")
+            print(f"✅ TikTok : Publication réussie !")
             return True
         else:
-            print(f"❌ L'upload a échoué (vérifie les cookies ou le fichier Node)")
+            print(f"❌ L'upload a échoué (Vérifie les logs Node.js ou les cookies)")
             return False
             
     except Exception as e:
