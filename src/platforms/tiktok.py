@@ -1,66 +1,66 @@
 import os
 import json
 import sys
-from unittest.mock import MagicMock
-
-# --- HACK NUCLÉAIRE : Mock automatique de tout ce qui manque ---
-class MockMissingModules:
-    def find_spec(self, fullname, path, target=None):
-        # Liste des modules critiques du moteur qu'on NE doit PAS mocker
-        engine_modules = ["tiktok_uploader", "tiktok_uploader.tiktok"]
-        
-        # Si le module manquant n'est pas un module vital du moteur, on le simule
-        if fullname not in engine_modules and fullname not in sys.modules:
-            # On ignore aussi les modules standards de python
-            if not fullname.split('.')[0] in sys.builtin_module_names:
-                sys.modules[fullname] = MagicMock()
-        return None
-
-sys.meta_path.insert(0, MockMissingModules())
 
 def upload_to_tiktok(config, video_path, video_title):
-    # --- 1. CONFIGURATION DES CHEMINS ---
+    # --- 1. CONFIGURATION DU MOTEUR ---
     current_dir = os.getcwd()
     engine_dir = os.path.join(current_dir, "engine")
     
+    # On force l'ajout de engine et tiktok_uploader au path
     if engine_dir not in sys.path:
         sys.path.insert(0, engine_dir)
+        sys.path.insert(0, os.path.join(engine_dir, "tiktok_uploader"))
 
     try:
-        # Import de la classe principale
+        # Import de la classe Tiktok officielle (V2.0)
         from tiktok_uploader.tiktok import Tiktok
-        print("✅ Moteur Tiktok chargé (Bypass des dépendances actif).")
+        print("✅ Moteur Tiktok V2.0 (Class) chargé avec succès.")
     except Exception as e:
-        print(f"🔥 Erreur fatale importation : {e}")
+        print(f"🔥 Erreur d'importation : {e}")
+        # Debug : afficher où Python cherche
+        print(f"PYTHONPATH actuel : {sys.path}")
         return False
 
-    # --- 2. PRÉPARATION ---
+    # --- 2. PRÉPARATION DES DONNÉES ---
     account_id = config.get("account_id", "default").upper()
     cookies_raw = os.environ.get(f"TIKTOK_COOKIES_{account_id}")
 
+    if not cookies_raw:
+        print(f"❌ Erreur : Secret TIKTOK_COOKIES_{account_id} introuvable.")
+        return False
+
+    # Création du fichier de cookies physique requis par le moteur
     cookie_file = os.path.join(current_dir, f"cookies_{account_id}.json")
     with open(cookie_file, 'w') as f:
         f.write(cookies_raw)
 
-    description = f"{video_title.replace('.mp4', '')} {' '.join(config.get('tags', ['#fyp']))}"
+    # Nettoyage du titre et préparation de la légende
+    clean_title = video_title.replace(".mp4", "")
+    tags = config.get("tags", ["#fyp", "#viral"])
+    description = f"{clean_title} {' '.join(tags)}"
 
-    # --- 3. EXÉCUTION ---
+    # --- 3. EXÉCUTION DE L'UPLOAD ---
     try:
-        print(f"🚀 [Makiisthenes-V2] Upload : {video_path.name}")
+        print(f"🚀 [Makiisthenes-V2] Début de l'envoi : {video_path.name}")
+        
+        # Initialisation du bot avec les cookies
         bot = Tiktok(cookies=cookie_file)
         
-        # On force l'upload direct
+        # Lancement de la méthode d'upload directe (Requests)
+        # Note : Cette méthode utilise les signatures Node.js installées précédemment
         bot.upload_video(
             filename=str(video_path),
             description=description
         )
         
-        print(f"✅ Vidéo transmise !")
+        print(f"✅ Vidéo transmise à TikTok !")
         return True
 
     except Exception as e:
-        print(f"❌ Erreur exécution : {e}")
+        print(f"❌ Erreur lors de l'exécution de l'upload : {e}")
         return False
     finally:
+        # Nettoyage
         if os.path.exists(cookie_file):
             os.remove(cookie_file)

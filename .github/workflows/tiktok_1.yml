@@ -1,10 +1,10 @@
-name: Bot TikTok 1 - Makiisthenes Engine
+name: Bot TikTok 1 - Makiisthenes V2
 
 on:
   workflow_dispatch:
     inputs:
       force_post:
-        description: 'Forcer'
+        description: 'Forcer la publication'
         required: false
         default: 'false'
 
@@ -14,7 +14,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: 🟢 Setup Node.js (Requis pour les signatures)
+      - name: 🟢 Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
@@ -24,28 +24,24 @@ jobs:
         with:
           python_version: '3.10'
 
-      - name: 📥 Installer le moteur Makiisthenes (Total)
+      - name: 📥 Installer le moteur et TOUTES les dépendances
         run: |
           git clone https://github.com/makiisthenes/TiktokAutoUploader.git engine
-          # Installation forcée des dépendances une par une pour éviter les conflits
+          # Installation des dépendances Python (Même les lourdes pour éviter les erreurs d'import)
           pip install --upgrade pip
-          pip install requests requests-toolbelt browser-cookie3 fake-useragent
-          pip install "moviepy<2.0.0"  # Version stable souvent requise par les vieux scripts
-          pip install decorator # Parfois requis par moviepy
+          pip install requests requests-toolbelt browser-cookie3 fake-useragent moviepy pytube
+          pip install google-api-python-client google-auth-httplib2 google-auth-oauthlib supabase
           
-          # Mock du module manquant pour éviter Selenium
+          # Mock de undetected_chromedriver car on ne veut pas de Selenium/Chrome
           mkdir -p undetected_chromedriver
           touch undetected_chromedriver/__init__.py
           
-          # Installation de la signature Node
+          # Installation du signataire Node.js (VITAL pour X-Bogus)
           cd engine/tiktok_uploader/tiktok-signature/ && npm install
-
-      - name: 📦 Installer tes dépendances
-        run: pip install google-api-python-client google-auth-httplib2 google-auth-oauthlib supabase requests requests-toolbelt
-
+          
       - name: 🚀 Run Publisher
         env:
-          # On dit à Python de regarder dans le dossier racine ET dans le dossier engine
+          # On ajoute le dossier engine au chemin de recherche Python
           PYTHONPATH: .:${{ github.workspace }}/engine
           ACCOUNT_NAME: "tiktok_1"
           FORCE_POST: ${{ github.event.inputs.force_post == 'true' && '1' || '0' }}
