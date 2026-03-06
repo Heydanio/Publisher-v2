@@ -41,33 +41,41 @@ def get_drive_service():
         raise
 
 def get_unpublished_video(account_name, folder_ids, platform="youtube"):
-    """Cherche une vidéo en utilisant uniquement l'ID Drive pour éviter les bugs de noms."""
+    """Cherche une vidéo avec un maximum de logs pour comprendre le blocage."""
     service = get_drive_service()
     
+    if not folder_ids:
+        print("❌ ERREUR : Aucun ID de dossier reçu !")
+        return None
+
     for folder_id in folder_ids:
-        print(f"📁 Scan du dossier : {folder_id}")
-        # On récupère TOUS les fichiers vidéo du dossier
-        query = f"'{folder_id}' in parents and mimeType contains 'video/' and trashed = false"
-        results = service.files().list(q=query, fields="files(id, name)").execute()
-        items = results.get('files', [])
-
-        if not items:
-            print(f"Empty: Aucun fichier trouvé dans {folder_id}")
-            continue
-
-        for item in items:
-            v_id = item['id']
-            v_name = item['name']
+        print(f"📁 Tentative de scan du dossier ID : {folder_id}")
+        
+        try:
+            # On demande d'abord les infos du dossier pour voir si on y a accès
+            folder_info = service.files().get(fileId=folder_id, fields="name").execute()
+            print(f"✅ Dossier trouvé sur Drive : {folder_info.get('name')}")
             
-            # Diagnostic : On affiche ce qu'on teste
-            print(f"🔍 Test de la vidéo : {v_name[:30]}...")
+            query = f"'{folder_id}' in parents and mimeType contains 'video/' and trashed = false"
+            results = service.files().list(q=query, fields="files(id, name)").execute()
+            items = results.get('files', [])
 
-            # VÉRIFICATION STRICTE par ID unique dans Supabase
-            if not is_video_published(account_name, v_id, platform=platform):
-                print(f"✨ MATCH : Vidéo prête à être postée !")
-                return item
-            else:
-                print(f"⏩ Déjà publiée (Skip)")
+            print(f"📊 Nombre de vidéos trouvées dans ce dossier : {len(items)}")
+
+            for item in items:
+                v_id = item['id']
+                v_name = item['name']
+                
+                # On vérifie si Supabase bloque
+                is_pub = is_video_published(account_name, v_id, platform=platform)
+                if not is_pub:
+                    print(f"✨ MATCH : '{v_name}' est prête !")
+                    return item
+                else:
+                    print(f"⏩ Déjà publiée : '{v_name}'")
+                    
+        except Exception as e:
+            print(f"❌ Erreur lors du scan du dossier {folder_id} : {e}")
                 
     return None
 
