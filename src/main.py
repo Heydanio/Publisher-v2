@@ -16,6 +16,7 @@ if sys.stdout.encoding != 'utf-8':
 from core.state import mark_video_published
 from core.drive import get_unpublished_video, download_video
 from platforms.youtube import upload_to_youtube
+from platforms.tiktok import upload_to_tiktok # <--- AJOUTÉ
 from core.alert import send_discord_notification
 
 # On travaille toujours en heure de Paris
@@ -34,7 +35,7 @@ def main():
     print(f"\n🚀 Démarrage de l'Auto-Publisher V2 : {account_name}")
     
     config = load_config(account_name)
-    platform = config.get("platform")
+    platform = config.get("platform", "youtube") # <--- RÉCUPÈRE LA PLATEFORME
     account_id = config.get("account_id")
     
     # --- GESTION DE L'ID DRIVE CACHÉ ---
@@ -44,6 +45,8 @@ def main():
         if secret_id:
             folder_ids = [secret_id]
             print("🔑 ID Drive récupéré depuis les secrets sécurisés.")
+        else:
+            print("⚠️ Attention : SECRET_DRIVE_FOLDER_ID attendu mais DRIVE_FOLDER_ID vide dans GitHub.")
 
     # --- VÉRIFICATION DE L'HEURE ---
     now_paris = datetime.now(PARIS_TZ)
@@ -54,13 +57,12 @@ def main():
     scheduled_hours = config.get("schedule", {}).get("slots_hours", [])
     
     is_time_to_post = current_hour in scheduled_hours
-    is_within_margin = current_min < 55 # Marge large pour le délai aléatoire
+    is_within_margin = current_min < 55 
 
     print(f"📅 Heure actuelle (Paris) : {current_hour}h{current_min:02d}")
 
     if not force_post:
         if not is_time_to_post:
-            # Optionnel : send_discord_notification(f"💤 **{account_id}** : En veille ({current_hour}h).")
             print(f"⏳ Pas de publication prévue à {current_hour}h.")
             return
         
@@ -80,12 +82,14 @@ def main():
         current_hour = now_paris.hour
         current_min = now_paris.minute
 
-    print(f"✅ Mode publication activé pour {account_id} !")
+    print(f"✅ Mode publication activé pour {account_id} ({platform}) !")
 
     # --- RECHERCHE DE VIDÉO ---
-    video = get_unpublished_video(account_name, folder_ids)
+    # On ajoute 'platform' ici pour que core/drive.py sache quoi chercher dans Supabase
+    video = get_unpublished_video(account_name, folder_ids, platform=platform)
+    
     if not video:
-        send_discord_notification(f"⚠️ **{account_id}** : C'est l'heure, mais le **Drive est vide** ! 😱")
+        send_discord_notification(f"⚠️ **{account_id}** : Dossier Drive vide pour {platform} ! 😱")
         print("🛑 Aucune vidéo inédite trouvée.")
         return
 
@@ -95,18 +99,24 @@ def main():
     download_video(video["id"], local_video_path)
 
     # --- UPLOAD ---
+    success = False
     if platform == "youtube":
         success = upload_to_youtube(config, local_video_path, video["name"])
-        if success:
-            mark_video_published(account_name, video["id"])
-            send_discord_notification(
-                f"✅ **PUBLICATION RÉUSSIE**\n"
-                f"📺 **Chaîne :** {account_id}\n"
-                f"🎬 **Vidéo :** `{video['name']}`\n"
-                f"⏰ **Heure :** {current_hour}h{current_min:02d}"
-            )
-        else:
-            send_discord_notification(f"❌ **ERREUR** : L'upload YouTube a échoué pour **{account_id}** (`{video['name']}`).")
+    elif platform == "tiktok":
+        success = upload_to_tiktok(config, local_video_path, video["name"])
+
+    # --- FINALISATION ---
+    if success:
+        # On passe platform pour marquer que c'est fait pour CE réseau
+        mark_video_published(account_name, video["id"], platform=platform)
+        send_discord_notification(
+            f"✅ **PUBLICATION RÉUSSIE ({platform.upper()})**\n"
+            f"👤 **Compte :** {account_id}\n"
+            f"🎬 **Vidéo :** `{video['name']}`\n"
+            f"⏰ **Heure :** {current_hour}h{current_min:02d}"
+        )
+    else:
+        send_discord_notification(f"❌ **ERREUR** : L'upload {platform} a échoué pour **{account_id}**.")
 
     # --- NETTOYAGE ---
     if local_video_path.exists():
