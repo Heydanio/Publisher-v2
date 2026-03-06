@@ -130,7 +130,11 @@ def main():
 
     # --- FINALISATION ---
     if success:
-        mark_video_published(account_name, video["id"], platform=platform)
+        try:
+            mark_video_published(account_name, video["id"], platform=platform)
+            print("✅ Statut mis à jour dans Supabase.")
+        except Exception as e:
+            print(f"⚠️ Alerte : Impossible de mettre à jour Supabase ({e}), mais la vidéo est publiée !")
         send_discord_notification(
             f"✅ **PUBLICATION RÉUSSIE ({platform.upper()})**\n"
             f"👤 **Compte :** {account_id}\n"
