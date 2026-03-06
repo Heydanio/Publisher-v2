@@ -41,25 +41,33 @@ def get_drive_service():
         raise
 
 def get_unpublished_video(account_name, folder_ids, platform="youtube"):
-    """Cherche une vidéo inédite sur CETTE plateforme."""
+    """Cherche une vidéo en utilisant uniquement l'ID Drive pour éviter les bugs de noms."""
     service = get_drive_service()
     
     for folder_id in folder_ids:
-        print(f"📁 Recherche dans le dossier Drive : {folder_id}...")
+        print(f"📁 Scan du dossier : {folder_id}")
+        # On récupère TOUS les fichiers vidéo du dossier
         query = f"'{folder_id}' in parents and mimeType contains 'video/' and trashed = false"
         results = service.files().list(q=query, fields="files(id, name)").execute()
         items = results.get('files', [])
 
+        if not items:
+            print(f"Empty: Aucun fichier trouvé dans {folder_id}")
+            continue
+
         for item in items:
-            video_id = item['id']
-            video_name = item['name']
+            v_id = item['id']
+            v_name = item['name']
             
-            # Vérification par compte ET par plateforme
-            if not is_video_published(account_name, video_id, platform=platform):
-                print(f"✨ Nouvelle vidéo trouvée : {video_name} (ID: {video_id})")
+            # Diagnostic : On affiche ce qu'on teste
+            print(f"🔍 Test de la vidéo : {v_name[:30]}...")
+
+            # VÉRIFICATION STRICTE par ID unique dans Supabase
+            if not is_video_published(account_name, v_id, platform=platform):
+                print(f"✨ MATCH : Vidéo prête à être postée !")
                 return item
             else:
-                print(f"⏩ Vidéo déjà publiée sur {platform} : {video_name}")
+                print(f"⏩ Déjà publiée (Skip)")
                 
     return None
 
