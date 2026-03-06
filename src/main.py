@@ -16,7 +16,7 @@ if sys.stdout.encoding != 'utf-8':
 from core.state import mark_video_published
 from core.drive import get_unpublished_video, download_video
 from platforms.youtube import upload_to_youtube
-from platforms.tiktok import upload_to_tiktok # <--- AJOUTÉ
+from platforms.tiktok import upload_to_tiktok
 from core.alert import send_discord_notification
 
 # On travaille toujours en heure de Paris
@@ -35,18 +35,32 @@ def main():
     print(f"\n🚀 Démarrage de l'Auto-Publisher V2 : {account_name}")
     
     config = load_config(account_name)
-    platform = config.get("platform", "youtube") # <--- RÉCUPÈRE LA PLATEFORME
+    platform = config.get("platform", "youtube")
     account_id = config.get("account_id")
     
-    # --- GESTION DE L'ID DRIVE CACHÉ ---
-    folder_ids = config.get("drive_folder_ids", [])
-    if folder_ids and folder_ids[0] == "SECRET_DRIVE_FOLDER_ID":
+    # --- GESTION DE L'ID DRIVE (CORRIGÉE) ---
+    # On initialise folder_ids à vide
+    folder_ids = []
+    
+    # 1. On regarde si une liste existe dans le JSON
+    json_folder_ids = config.get("drive_folder_ids", [])
+    # 2. On regarde si un ID unique existe dans le JSON (sans 's')
+    json_single_id = config.get("drive_folder_id")
+    
+    if json_folder_ids:
+        folder_ids = json_folder_ids
+    elif json_single_id:
+        folder_ids = [json_single_id]
+
+    # 3. Si on trouve le mot-clé SECRET, on va chercher dans les secrets GitHub
+    if folder_ids and (folder_ids[0] == "SECRET_DRIVE_FOLDER_ID" or folder_ids[0] == ""):
         secret_id = os.environ.get("DRIVE_FOLDER_ID")
         if secret_id:
             folder_ids = [secret_id]
-            print("🔑 ID Drive récupéré depuis les secrets sécurisés.")
+            print(f"🔑 ID Drive récupéré depuis GitHub : {secret_id[:5]}...")
         else:
-            print("⚠️ Attention : SECRET_DRIVE_FOLDER_ID attendu mais DRIVE_FOLDER_ID vide dans GitHub.")
+            print("⚠️ Attention : SECRET_DRIVE_FOLDER_ID attendu mais la variable d'env DRIVE_FOLDER_ID est vide.")
+            folder_ids = []
 
     # --- VÉRIFICATION DE L'HEURE ---
     now_paris = datetime.now(PARIS_TZ)
@@ -72,7 +86,7 @@ def main():
             return
 
         # --- SIMULATION HUMAINE (Délai aléatoire) ---
-        wait_min = random.randint(1, 20)
+        wait_min = random.randint(1, 10)
         send_discord_notification(f"🎲 **{account_id}** : Créneau {current_hour}h détecté ! Attente de `{wait_min} min` avant postage...")
         print(f"🎲 Jitter : Attente de {wait_min} minutes...")
         time.sleep(wait_min * 60)
@@ -85,29 +99,37 @@ def main():
     print(f"✅ Mode publication activé pour {account_id} ({platform}) !")
 
     # --- RECHERCHE DE VIDÉO ---
-    # On ajoute 'platform' ici pour que core/drive.py sache quoi chercher dans Supabase
+    if not folder_ids:
+        print("❌ ERREUR : Aucun ID de dossier Drive n'a pu être trouvé.")
+        return
+
     video = get_unpublished_video(account_name, folder_ids, platform=platform)
     
     if not video:
-        send_discord_notification(f"⚠️ **{account_id}** : Dossier Drive vide pour {platform} ! 😱")
         print("🛑 Aucune vidéo inédite trouvée.")
         return
 
     # --- TÉLÉCHARGEMENT ---
     tmpdir = Path(tempfile.mkdtemp())
-    local_video_path = tmpdir / video["name"]
+    # Nettoyage sommaire du nom de fichier pour éviter les erreurs locales
+    safe_name = "".join([c for c in video["name"] if c.isalnum() or c in (' ', '.', '_', '-')]).strip()
+    local_video_path = tmpdir / safe_name
+    
     download_video(video["id"], local_video_path)
 
     # --- UPLOAD ---
     success = False
-    if platform == "youtube":
-        success = upload_to_youtube(config, local_video_path, video["name"])
-    elif platform == "tiktok":
-        success = upload_to_tiktok(config, local_video_path, video["name"])
+    try:
+        if platform == "youtube":
+            success = upload_to_youtube(config, local_video_path, video["name"])
+        elif platform == "tiktok":
+            success = upload_to_tiktok(config, local_video_path, video["name"])
+    except Exception as e:
+        print(f"❌ Erreur pendant l'upload : {e}")
+        success = False
 
     # --- FINALISATION ---
     if success:
-        # On passe platform pour marquer que c'est fait pour CE réseau
         mark_video_published(account_name, video["id"], platform=platform)
         send_discord_notification(
             f"✅ **PUBLICATION RÉUSSIE ({platform.upper()})**\n"
