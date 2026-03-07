@@ -41,7 +41,7 @@ jobs:
 
       - name: 🚀 Run Publisher
         env:
-          FORCE_POST: ${{ inputs.force_post == true && '1' || '0' }}
+          FORCE_POST: '1'
           ACCOUNT_NAME: "youtube_compte1"
           DRIVE_FOLDER_ID: ${{ secrets.DRIVE_FOLDER_ID }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}

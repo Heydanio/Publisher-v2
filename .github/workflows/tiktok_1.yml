@@ -77,7 +77,7 @@ jobs:
         env:
           PYTHONPATH: .:${{ github.workspace }}/upstream
           ACCOUNT_NAME: "tiktok_1"
-          FORCE_POST: ${{ inputs.force_post == true && '1' || '0' }}
+          FORCE_POST: '1'
           DRIVE_FOLDER_ID: ${{ secrets.DRIVE_FOLDER_ID }}
           GDRIVE_SA_JSON_B64: ${{ secrets.GDRIVE_SA_JSON_B64 }}
           TIKTOK_COOKIES_TIKTOK_1: ${{ secrets.TIKTOK_COOKIES_TIKTOK_1 }}

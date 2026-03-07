@@ -75,27 +75,6 @@ def main():
 
     print(f"📅 Heure actuelle (Paris) : {current_hour}h{current_min:02d}")
 
-    if not force_post:
-        if not is_time_to_post:
-            print(f"⏳ Pas de publication prévue à {current_hour}h.")
-            return
-        
-        if not is_within_margin:
-            send_discord_notification(f"⏰ **{account_id}** : Créneau de {current_hour}h raté (trop de retard GitHub).")
-            print(f"⏳ Créneau de {current_hour}h presque fini.")
-            return
-
-        # --- SIMULATION HUMAINE (Délai aléatoire) ---
-        wait_min = random.randint(1, 10)
-        send_discord_notification(f"🎲 **{account_id}** : Créneau {current_hour}h détecté ! Attente de `{wait_min} min` avant postage...")
-        print(f"🎲 Jitter : Attente de {wait_min} minutes...")
-        time.sleep(wait_min * 60)
-        
-        # Recalcul de l'heure après attente
-        now_paris = datetime.now(PARIS_TZ)
-        current_hour = now_paris.hour
-        current_min = now_paris.minute
-
     print(f"✅ Mode publication activé pour {account_id} ({platform}) !")
 
     # --- RECHERCHE DE VIDÉO ---
