@@ -56,9 +56,24 @@ def upload_to_youtube(config: dict, video_path: Path, video_name: str) -> bool:
         return False
 
     # 3. Préparation des métadonnées
-    title = sanitize_title(video_name)
     desc_file = config["content"]["descriptions_file"]
     desc = get_random_description(desc_file)
+    
+    # --- NOUVEAU TITRE INTELLIGENT ---
+    # On prend la description et on coupe au premier '#' pour garder juste l'accroche
+    raw_title = desc.split('#')[0].strip()
+    
+    # Si par malheur la phrase est vide, on met un titre de secours
+    if not raw_title:
+        raw_title = "Un dossier incroyable ! 😱"
+        
+    # Sécurité : YouTube limite les titres à 100 caractères
+    if len(raw_title) > 95:
+        title = raw_title[:95] + "..."
+    else:
+        title = raw_title
+    # ---------------------------------
+
     tags_pool = config["content"]["tags_pool"]
     tags = pick_tags(tags_pool, 4, 10)
     category = config["content"].get("youtube_category", "Entertainment")
