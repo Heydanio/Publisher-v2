@@ -1,0 +1,14 @@
+{
+  "platform": "youtube",
+  "account_id": "CHAsderion",
+  "is_active": true,
+  "drive_folder_ids": ["SECRET_DRIVE_FOLDER_ID"],
+  "schedule": {
+    "slots_hours": [8, 11, 14, 17, 20]
+  },
+  "content": {
+    "descriptions_file": "content/descriptions/CHAsderion.txt",
+    "tags_pool": ["shorts", "fun", "fr", "drôle", "humour"],
+    "youtube_category": "Entertainment"
+  }
+}
