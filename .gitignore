@@ -1,50 +1,50 @@
-# --- ⚠️ CREDENTIALS - JAMAIS COMMITER! ---
+# Credentials
 secrets/
 *.json
+!package.json
+!pyproject.json
 *.key
 *.pem
-client_secret.json
-credentials.json
-token.json
-.env
-.env.local
-.env.*.local
-oauth2.json
-
-# --- Fichiers sensibles ---
 *.b64
-secret*.txt
-token*.txt
+.env
+.env.*
 
-# --- Fichiers temporaires ---
-*.pyc
+# Config sensible
+config/*.json
+!config/.example.json
+
+# Python
 __pycache__/
+*.pyc
 .pytest_cache/
 .mypy_cache/
+.ruff_cache/
 *.egg-info/
 dist/
 build/
+.coverage
 
-# --- IDE ---
+# IDE
 .vscode/
 .idea/
 *.swp
-*.swo
 *~
-
-# --- OS ---
 .DS_Store
 Thumbs.db
 
-# --- Logs et temp ---
+# Logs/temp
 *.log
 tmp/
 temp/
-.tmp/
 
-# --- Cookies (TikTok) ---
+# TikTok
 CookiesDir/
-*.json.bak
+upstream/
 
-# --- Config sensible (IDs locaux) ---
-config/*.json
+# venv
+venv/
+.venv/
+env/
+
+# misc
+*.bak

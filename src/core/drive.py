@@ -1,92 +1,121 @@
-import os
+"""Client Google Drive avec pagination."""
 import io
-import google.auth
+import re
+import json
+import base64
+from pathlib import Path
+from typing import Optional, List, Dict, Any
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseDownload
 from google.oauth2 import service_account
-import base64
-import json
-from core.state import is_video_published
 
-def get_drive_service():
-    """Version de secours ultime contre l'erreur Extra Data."""
-    import re # Ajoute cet import en haut du fichier si besoin
+from src.core.state import is_video_published
+from src.config import get_required_env
+from src.utils.logger import get_logger
+from src.utils.retry import retry
+
+logger = get_logger(__name__)
+_drive_service: Optional[Any] = None
+
+
+def _parse_sa_json(encoded: str) -> Dict[str, Any]:
+    """Parse le JSON du service account."""
+    decoded = base64.b64decode(encoded).decode('utf-8').strip()
+    match = re.search(r'(\{.*\})', decoded, re.DOTALL)
+    if match:
+        decoded = match.group(1)
+    return json.loads(decoded)
+
+
+def get_drive_service() -> Any:
+    """Singleton du service Drive."""
+    global _drive_service
+    if _drive_service is None:
+        encoded = get_required_env("GDRIVE_SA_JSON_B64").strip()
+        sa_info = _parse_sa_json(encoded)
+        creds = service_account.Credentials.from_service_account_info(
+            sa_info, scopes=["https://www.googleapis.com/auth/drive.readonly"]
+        )
+        _drive_service = build('drive', 'v3', credentials=creds)
+        logger.info("Service Drive initialise")
+    return _drive_service
+
+
+@retry(max_attempts=3, initial_delay=2.0)
+def _list_videos(folder_id: str) -> List[Dict[str, str]]:
+    """Liste TOUTES les videos d'un dossier (paginated)."""
+    service = get_drive_service()
+    query = f"'{folder_id}' in parents and mimeType contains 'video/' and trashed = false"
     
-    encoded_json = os.environ.get("GDRIVE_SA_JSON_B64", "").strip()
-    if not encoded_json:
-        raise ValueError("❌ Secret GDRIVE_SA_JSON_B64 vide.")
+    all_videos: List[Dict[str, str]] = []
+    page_token: Optional[str] = None
     
-    try:
-        # 1. Décodage et nettoyage des espaces
-        decoded_json = base64.b64decode(encoded_json).decode('utf-8').strip()
+    while True:
+        response = service.files().list(
+            q=query,
+            fields="nextPageToken, files(id, name, createdTime)",
+            orderBy="createdTime",
+            pageSize=1000,
+            pageToken=page_token,
+        ).execute()
         
-        # 2. On utilise une Regex pour ne garder QUE ce qui est entre les premières {}
-        # Cela élimine tout caractère "Extra data" invisible à la fin
-        match = re.search(r'(\{.*\})', decoded_json, re.DOTALL)
-        if match:
-            clean_json = match.group(1)
-        else:
-            clean_json = decoded_json
+        all_videos.extend(response.get('files', []))
+        page_token = response.get('nextPageToken')
+        if not page_token:
+            break
+    
+    return all_videos
 
-        # 3. Chargement
-        service_account_info = json.loads(clean_json)
-        creds = service_account.Credentials.from_service_account_info(service_account_info)
-        return build('drive', 'v3', credentials=creds)
-        
-    except Exception as e:
-        print(f"❌ Erreur finale : {e}")
-        # On affiche la longueur pour comprendre s'il y a un doublon
-        if 'decoded_json' in locals():
-            print(f"DEBUG: Taille reçue {len(decoded_json)} | Début: {decoded_json[:15]}")
-        raise
 
-def get_unpublished_video(account_name, folder_ids, platform="youtube"):
-    """Cherche une vidéo avec un maximum de logs pour comprendre le blocage."""
+def get_unpublished_video(
+    account_name: str,
+    folder_ids: List[str],
+    platform: str = "youtube"
+) -> Optional[Dict[str, str]]:
+    """Trouve la premiere video non publiee."""
     service = get_drive_service()
     
-    if not folder_ids:
-        print("❌ ERREUR : Aucun ID de dossier reçu !")
-        return None
-
     for folder_id in folder_ids:
-        print(f"📁 Tentative de scan du dossier ID : {folder_id}")
+        logger.info(f"Scan dossier: {folder_id}")
         
         try:
-            # On demande d'abord les infos du dossier pour voir si on y a accès
             folder_info = service.files().get(fileId=folder_id, fields="name").execute()
-            print(f"✅ Dossier trouvé sur Drive : {folder_info.get('name')}")
-            
-            query = f"'{folder_id}' in parents and mimeType contains 'video/' and trashed = false"
-            results = service.files().list(q=query, fields="files(id, name)").execute()
-            items = results.get('files', [])
-
-            print(f"📊 Nombre de vidéos trouvées dans ce dossier : {len(items)}")
-
-            for item in items:
-                v_id = item['id']
-                v_name = item['name']
-                
-                # On vérifie si Supabase bloque
-                is_pub = is_video_published(account_name, v_id, platform=platform)
-                if not is_pub:
-                    print(f"✨ MATCH : '{v_name}' est prête !")
-                    return item
-                else:
-                    print(f"⏩ Déjà publiée : '{v_name}'")
-                    
+            logger.info(f"Dossier: {folder_info.get('name')}")
         except Exception as e:
-            print(f"❌ Erreur lors du scan du dossier {folder_id} : {e}")
-                
+            logger.error(f"Acces dossier {folder_id} echec: {e}")
+            continue
+        
+        try:
+            videos = _list_videos(folder_id)
+            logger.info(f"Videos trouvees: {len(videos)}")
+        except Exception as e:
+            logger.error(f"Scan {folder_id} echec: {e}")
+            continue
+        
+        for video in videos:
+            if not is_video_published(account_name, video['id'], platform):
+                logger.info(f"Match: {video['name']}")
+                return video
+            else:
+                logger.debug(f"Deja publiee: {video['name']}")
+    
+    logger.info("Aucune video disponible")
     return None
 
-def download_video(file_id, local_path):
-    """Télécharge la vidéo vers le serveur temporaire de GitHub."""
+
+@retry(max_attempts=3, initial_delay=5.0)
+def download_video(file_id: str, local_path: Path) -> Path:
+    """Telecharge une video."""
     service = get_drive_service()
     request = service.files().get_media(fileId=file_id)
-    fh = io.FileIO(local_path, 'wb')
-    downloader = MediaIoBaseDownload(fh, request)
-    done = False
-    print(f"📥 Téléchargement en cours...")
-    while done is False:
-        status, done = downloader.next_chunk()
-    print(f"✅ Téléchargement terminé : {local_path}")
+    
+    with io.FileIO(local_path, 'wb') as fh:
+        downloader = MediaIoBaseDownload(fh, request, chunksize=10 * 1024 * 1024)
+        logger.info(f"Telechargement: {file_id}")
+        done = False
+        while not done:
+            status, done = downloader.next_chunk()
+    
+    size_mb = local_path.stat().st_size / (1024 * 1024)
+    logger.info(f"Telecharge: {size_mb:.1f} MB")
+    return local_path

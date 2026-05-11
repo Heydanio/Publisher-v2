@@ -1,77 +1,93 @@
+"""Upload TikTok (utilise fork heydanio/TiktokAutoUploader)."""
 import os
 import sys
 import subprocess
-from pathlib import Path
 import json
 import pickle
 import base64
+from pathlib import Path
 
-def upload_to_tiktok(config, video_path, video_title):
-    current_dir = os.getcwd()
-    cli_path = Path("upstream/cli.py")
+from src.config import AccountConfig
+from src.core.safeguards import validate_tags, sanitize_content
+from src.utils.logger import get_logger
+
+logger = get_logger(__name__)
+
+
+def _prepare_cookies(account_id: str) -> bool:
+    """Prepare les cookies depuis env."""
+    account_upper = account_id.upper()
+    cookies_raw = os.environ.get(f"TIKTOK_COOKIES_{account_upper}")
     
-    if not cli_path.exists():
-        print(f"❌ Erreur : Le fichier {cli_path} est introuvable. Le clone a échoué.")
-        return False
-
-    # --- PRÉPARATION DES COOKIES ---
-    account_id = config.get("account_id", "default").upper()
-    cookies_raw = os.environ.get(f"TIKTOK_COOKIES_{account_id}")
-
     if not cookies_raw:
-        print(f"❌ Erreur : Secret TIKTOK_COOKIES_{account_id} introuvable.")
+        logger.error(f"TIKTOK_COOKIES_{account_upper} manquant")
         return False
-
+    
     uname = account_id.lower()
     Path("CookiesDir").mkdir(exist_ok=True)
     
-    # 🪄 LA MAGIE EST ICI : Conversion JSON -> Pickle
+    cookie_data = None
     try:
-        # On essaie de lire ton secret comme du JSON
         cookies_json = json.loads(cookies_raw)
-        # On le convertit en format binaire Pickle (Ce que Makiisthenes exige)
         cookie_data = pickle.dumps(cookies_json)
-        print("✅ Cookies détectés au format JSON et convertis en Pickle pour le moteur.")
+        logger.info("Cookies JSON convertis en pickle")
     except json.JSONDecodeError:
-        # Si ça plante, c'est que c'est l'ancien format Base64 de ton premier script
         try:
             cookie_data = base64.b64decode(cookies_raw.encode("utf-8"))
-            print("✅ Cookies détectés au format Base64 et décodés.")
+            logger.info("Cookies base64 decodes")
         except Exception as e:
-            print(f"❌ Erreur fatale de décodage des cookies : {e}")
+            logger.error(f"Decodage cookies: {e}")
             return False
-
-    # Écriture des 3 fichiers vitaux
-    (Path("CookiesDir") / f"tiktok_session-{uname}.cookie").write_bytes(cookie_data)
-    (Path("CookiesDir") / "main.cookie").write_bytes(cookie_data)
-    (Path("CookiesDir") / f"{uname}.cookie").write_bytes(cookie_data)
-
-    # --- PRÉPARATION DE LA COMMANDE ---
-    clean_title = video_title.replace(".mp4", "")
-    tags = config.get("tags", ["#fyp", "#viral"])
-    description = f"{clean_title} {' '.join(tags)}"
-
-    print(f"🚀 [Makiisthenes CLI] Préparation de l'upload : {video_path.name}")
     
+    if not cookie_data:
+        return False
+    
+    for filename in [f"tiktok_session-{uname}.cookie", "main.cookie", f"{uname}.cookie"]:
+        (Path("CookiesDir") / filename).write_bytes(cookie_data)
+    
+    return True
+
+
+def upload_to_tiktok(config: AccountConfig, video_path: Path, video_title: str) -> bool:
+    """Upload TikTok."""
+    cli_path = Path("upstream/cli.py")
+    
+    if not cli_path.exists():
+        logger.error(f"CLI introuvable: {cli_path}")
+        return False
+    
+    if not _prepare_cookies(config.account_id):
+        return False
+    
+    # Validation tags
+    valid, reason = validate_tags(config.tags, "tiktok")
+    if not valid:
+        logger.warning(f"Tags problematiques: {reason}")
+    
+    clean_title = sanitize_content(video_title.replace(".mp4", "").replace(".mov", ""))
+    tags_str = " ".join(config.tags[:5])  # Max 5 tags TikTok pour eviter spam
+    description = f"{clean_title} {tags_str}"
+    
+    uname = config.account_id.lower()
     cmd = [
-        sys.executable, 
-        str(cli_path), 
-        "upload", 
-        "--user", uname, 
-        "-v", str(video_path), 
-        "-t", description
+        sys.executable, str(cli_path), "upload",
+        "--user", uname, "-v", str(video_path), "-t", description,
     ]
     
-    print("RUN:", " ".join(cmd))
+    logger.info(f"Upload TikTok: {video_path.name}")
     
-    # --- EXECUTION ---
     try:
-        result = subprocess.run(cmd, check=True, capture_output=True, text=True)
-        print("✅ Upload CLI terminé avec succès !")
-        print(result.stdout)
+        result = subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=900)
+        logger.info("Upload TikTok reussi")
         return True
+    except subprocess.TimeoutExpired:
+        logger.error("Upload timeout")
+        return False
     except subprocess.CalledProcessError as e:
-        print(f"❌ Erreur lors de l'exécution du CLI (Code {e.returncode}).")
-        print("STDOUT:\n", e.stdout)
-        print("STDERR:\n", e.stderr)
+        logger.error(f"Upload echec (code {e.returncode})")
+        if e.stderr:
+            logger.error(f"STDERR: {e.stderr[:500]}")
+        return False
+    except Exception as e:
+        logger.error(f"Erreur: {e}")
         return False

@@ -1,132 +1,148 @@
+"""Publisher-v2 - Point d'entree."""
 import os
 import sys
-import json
 import tempfile
-import random
-import time
+import shutil
 from pathlib import Path
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-# Correctif pour les émojis sur le terminal
 if sys.stdout.encoding != 'utf-8':
     sys.stdout.reconfigure(encoding='utf-8')
 
-# --- Import de nos modules ---
-from core.state import mark_video_published
-from core.drive import get_unpublished_video, download_video
-from platforms.youtube import upload_to_youtube
-from platforms.tiktok import upload_to_tiktok
-from core.alert import send_discord_notification
+from src.config import load_account_config, AccountConfig
+from src.core.state import mark_video_published
+from src.core.drive import get_unpublished_video, download_video
+from src.core.alert import (
+    send_success_notification,
+    send_error_notification,
+    send_rate_limit_notification,
+)
+from src.core.rate_limiter import check_rate_limit, record_upload
+from src.platforms.youtube import upload_to_youtube
+from src.platforms.tiktok import upload_to_tiktok
+from src.utils.logger import get_logger
+from src.utils.timing import human_delay
 
-# On travaille toujours en heure de Paris
+logger = get_logger(__name__)
 PARIS_TZ = ZoneInfo("Europe/Paris")
 
-def load_config(account_name: str) -> dict:
-    config_path = Path(f"config/{account_name}.json")
-    if not config_path.exists():
-        print(f"❌ Erreur : Config introuvable ({config_path})")
-        sys.exit(1)
-    with open(config_path, "r", encoding="utf-8") as f:
-        return json.load(f)
 
-def main():
-    account_name = os.environ.get("ACCOUNT_NAME", "youtube_compte1")
-    print(f"\n🚀 Démarrage de l'Auto-Publisher V2 : {account_name}")
-    
-    config = load_config(account_name)
-    platform = config.get("platform", "youtube")
-    account_id = config.get("account_id")
-    
-    # --- GESTION DE L'ID DRIVE (CORRIGÉE) ---
-    # On initialise folder_ids à vide
-    folder_ids = []
-    
-    # 1. On regarde si une liste existe dans le JSON
-    json_folder_ids = config.get("drive_folder_ids", [])
-    # 2. On regarde si un ID unique existe dans le JSON (sans 's')
-    json_single_id = config.get("drive_folder_id")
-    
-    if json_folder_ids:
-        folder_ids = json_folder_ids
-    elif json_single_id:
-        folder_ids = [json_single_id]
+def _sanitize_filename(name: str) -> str:
+    safe_chars = (' ', '.', '_', '-')
+    return "".join(c for c in name if c.isalnum() or c in safe_chars).strip()
 
-    # 3. Si on trouve le mot-clé SECRET, on va chercher dans les secrets GitHub
-    if folder_ids and (folder_ids[0] == "SECRET_DRIVE_FOLDER_ID" or folder_ids[0] == ""):
-        secret_id = os.environ.get("DRIVE_FOLDER_ID")
-        if secret_id:
-            folder_ids = [secret_id]
-            print(f"🔑 ID Drive récupéré depuis GitHub : {secret_id[:5]}...")
-        else:
-            print("⚠️ Attention : SECRET_DRIVE_FOLDER_ID attendu mais la variable d'env DRIVE_FOLDER_ID est vide.")
-            folder_ids = []
 
-    # --- VÉRIFICATION DE L'HEURE ---
-    now_paris = datetime.now(PARIS_TZ)
-    current_hour = now_paris.hour
-    current_min = now_paris.minute
+def _upload_video(config: AccountConfig, video_path: Path, video_name: str) -> bool:
+    if config.platform == "youtube":
+        return upload_to_youtube(config, video_path, video_name)
+    elif config.platform == "tiktok":
+        return upload_to_tiktok(config, video_path, video_name)
+    return False
+
+
+def run_publisher(account_name: str) -> bool:
+    """Pipeline complet."""
+    logger.info("=" * 80)
+    logger.info(f"DEMARRAGE - Compte: {account_name}")
+    logger.info("=" * 80)
     
+    # 1. Config
+    try:
+        config = load_account_config(account_name)
+    except (FileNotFoundError, ValueError) as e:
+        logger.error(f"Config: {e}")
+        return False
+    
+    # 2. Heure
+    now = datetime.now(PARIS_TZ)
+    time_str = now.strftime("%Hh%M")
+    logger.info(f"Heure Paris: {time_str}")
+    
+    # 3. Check rate limit ANTI-SHADOWBAN
+    limits = config.get_rate_limits()
+    allowed, reason = check_rate_limit(account_name, config.platform, limits)
+    
+    if not allowed:
+        logger.warning(f"Rate limit: {reason}")
+        send_rate_limit_notification(config.platform, config.account_id, reason)
+        return False
+    
+    # 4. Force post check
     force_post = os.environ.get("FORCE_POST") == "1"
-    scheduled_hours = config.get("schedule", {}).get("slots_hours", [])
+    if not force_post:
+        if not config.schedule.is_publishing_time(now.hour, now.minute):
+            logger.info(f"Hors plage: slots={config.schedule.slots_hours}")
+            return False
     
-    is_time_to_post = current_hour in scheduled_hours
-    is_within_margin = current_min < 55 
-
-    print(f"📅 Heure actuelle (Paris) : {current_hour}h{current_min:02d}")
-
-    print(f"✅ Mode publication activé pour {account_id} ({platform}) !")
-
-    # --- RECHERCHE DE VIDÉO ---
-    if not folder_ids:
-        print("❌ ERREUR : Aucun ID de dossier Drive n'a pu être trouvé.")
-        return
-
-    video = get_unpublished_video(account_name, folder_ids, platform=platform)
+    logger.info(f"Mode publication: {config.platform}/{config.account_id}")
+    
+    # 5. Chercher video
+    video = get_unpublished_video(
+        account_name=account_name,
+        folder_ids=config.drive_folder_ids,
+        platform=config.platform,
+    )
     
     if not video:
-        print("🛑 Aucune vidéo inédite trouvée.")
-        return
-
-    # --- TÉLÉCHARGEMENT ---
-    tmpdir = Path(tempfile.mkdtemp())
-    # Nettoyage sommaire du nom de fichier pour éviter les erreurs locales
-    safe_name = "".join([c for c in video["name"] if c.isalnum() or c in (' ', '.', '_', '-')]).strip()
-    local_video_path = tmpdir / safe_name
+        logger.info("Aucune video disponible")
+        return False
     
-    download_video(video["id"], local_video_path)
-
-    # --- UPLOAD ---
-    success = False
+    video_name = video["name"]
+    video_id = video["id"]
+    logger.info(f"Video: {video_name}")
+    
+    # 6. Petite pause aleatoire (humanisation)
+    if os.environ.get("HUMAN_DELAY") == "1":
+        human_delay(base_seconds=120, variance=0.5)
+    
+    # 7. Download
+    tmp_dir = Path(tempfile.mkdtemp(prefix="publisher_"))
+    
     try:
-        if platform == "youtube":
-            success = upload_to_youtube(config, local_video_path, video["name"])
-        elif platform == "tiktok":
-            success = upload_to_tiktok(config, local_video_path, video["name"])
+        safe_name = _sanitize_filename(video_name)
+        local_path = tmp_dir / safe_name
+        download_video(video_id, local_path)
+        
+        # 8. Upload
+        success = _upload_video(config, local_path, video_name)
+        
+        # 9. Finaliser
+        if success:
+            try:
+                mark_video_published(account_name, video_id, config.platform)
+            except Exception as e:
+                logger.error(f"Supabase down apres upload: {e}")
+            
+            try:
+                record_upload(account_name, config.platform)
+            except Exception as e:
+                logger.warning(f"Rate history fail: {e}")
+            
+            send_success_notification(config.platform, config.account_id, video_name, time_str)
+            return True
+        else:
+            send_error_notification(config.platform, config.account_id, "Upload echoue")
+            return False
+    
+    finally:
+        if tmp_dir.exists():
+            shutil.rmtree(tmp_dir, ignore_errors=True)
+
+
+def main() -> int:
+    account_name = os.environ.get("ACCOUNT_NAME", "youtube_compte1")
+    try:
+        success = run_publisher(account_name)
+        return 0 if success else 1
     except Exception as e:
-        print(f"❌ Erreur pendant l'upload : {e}")
-        success = False
-
-    # --- FINALISATION ---
-    if success:
+        logger.critical(f"Fatal: {e}", exc_info=True)
         try:
-            mark_video_published(account_name, video["id"], platform=platform)
-            print("✅ Statut mis à jour dans Supabase.")
-        except Exception as e:
-            print(f"⚠️ Alerte : Impossible de mettre à jour Supabase ({e}), mais la vidéo est publiée !")
-        send_discord_notification(
-            f"✅ **PUBLICATION RÉUSSIE ({platform.upper()})**\n"
-            f"👤 **Compte :** {account_id}\n"
-            f"🎬 **Vidéo :** `{video['name']}`\n"
-            f"⏰ **Heure :** {current_hour}h{current_min:02d}"
-        )
-    else:
-        send_discord_notification(f"❌ **ERREUR** : L'upload {platform} a échoué pour **{account_id}**.")
+            send_error_notification("system", account_name, str(e))
+        except Exception:
+            pass
+        return 1
 
-    # --- NETTOYAGE ---
-    if local_video_path.exists():
-        os.remove(local_video_path)
-        print("🧹 Fichier temporaire supprimé.")
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
