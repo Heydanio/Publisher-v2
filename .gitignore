@@ -10,4 +10,4 @@ secrets/
 
 # Temp
 *.mp4
-tmp/
+tmp/secrets/
