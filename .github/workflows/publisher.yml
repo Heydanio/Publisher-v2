@@ -24,17 +24,24 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Cache pip dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles("**/requirements.txt") }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
       - name: Install dependencies
         run: |
           pip install google-auth google-auth-oauthlib google-auth-httplib2 google-api-python-client supabase
           pip install oauth2client progressbar2
-          pip install "git+https://github.com/tokland/youtube-upload.git"
+          pip install "git+https://github.com/tokland/youtube-upload.git@fed2e11d5ab98c9812f5e39b13f59a0b4f7a2c6f"
 
       # --- 🪄 L'ASTUCE DU DÉLAI ALÉATOIRE EST ICI ---
       - name: 🎲 Délai Aléatoire (Anti-Robot)
         if: ${{ github.event_name == 'schedule' }}
         run: |
-          DELAY=$((RANDOM % 2700))
+          DELAY=$((RANDOM % 600))
           MINUTES=$((DELAY / 60))
           echo "Attente de $MINUTES minutes et quelques secondes pour simuler un comportement humain..."
           sleep $DELAY
