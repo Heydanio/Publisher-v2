@@ -45,3 +45,6 @@ temp/
 # --- Cookies (TikTok) ---
 CookiesDir/
 *.json.bak
+
+# --- Config sensible (IDs locaux) ---
+config/*.json
