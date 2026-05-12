@@ -75,12 +75,17 @@ def load_account_config(account_name: str) -> AccountConfig:
     with open(config_path, "r", encoding="utf-8") as f:
         data: Dict[str, Any] = json.load(f)
 
-    # Substituer les placeholders par les variables d'env
-    drive_folder_ids = data.get("drive_folder_ids", [])
-    drive_folder_ids = [
-        os.environ.get("DRIVE_FOLDER_ID", folder_id) if folder_id == "$DRIVE_FOLDER_ID" else folder_id
-        for folder_id in drive_folder_ids
-    ]
+    # Substituer les placeholders $DRIVE_FOLDER_ID* par les variables d'env
+    drive_folder_ids = []
+    for folder_id in data.get("drive_folder_ids", []):
+        if folder_id.startswith("$"):
+            # C'est un placeholder (ex: $DRIVE_FOLDER_ID ou $DRIVE_FOLDER_ID_2)
+            env_var = folder_id[1:]  # enlever le $
+            resolved = os.environ.get(env_var, folder_id)
+            drive_folder_ids.append(resolved)
+        else:
+            # C'est un vrai folder ID
+            drive_folder_ids.append(folder_id)
     
     if not drive_folder_ids:
         env_id = os.environ.get("DRIVE_FOLDER_ID", "")
