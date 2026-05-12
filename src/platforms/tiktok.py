@@ -6,7 +6,6 @@ import json
 import pickle
 import base64
 from pathlib import Path
-
 from src.config import AccountConfig
 from src.core.safeguards import validate_tags, sanitize_content
 from src.utils.logger import get_logger
@@ -14,27 +13,30 @@ from src.utils.logger import get_logger
 logger = get_logger(__name__)
 
 
-def _prepare_cookies(account_id: str) -> bool:
+def _prepare_cookies(account_name: str) -> bool:
     """Prepare les cookies depuis env."""
-    account_upper = account_id.upper()
-    cookies_raw = os.environ.get(f"TIKTOK_COOKIES_{account_upper}")
+    # Utilise account_name (tiktok_1) pas account_id (@asterionmeme_)
+    secret_name = f"TIKTOK_COOKIES_{account_name.upper()}"
+    cookies_raw = os.environ.get(secret_name)
     
     if not cookies_raw:
-        logger.error(f"TIKTOK_COOKIES_{account_upper} manquant")
+        logger.error(f"{secret_name} manquant")
         return False
     
-    uname = account_id.lower()
+    uname = account_name.lower()
     Path("CookiesDir").mkdir(exist_ok=True)
-    
     cookie_data = None
+    
     try:
-        cookies_json = json.loads(cookies_raw)
-        cookie_data = pickle.dumps(cookies_json)
-        logger.info("Cookies JSON convertis en pickle")
-    except json.JSONDecodeError:
+        # Essayer base64 d'abord
+        cookie_data = base64.b64decode(cookies_raw.encode("utf-8"))
+        logger.info("Cookies base64 decodes")
+    except Exception:
         try:
-            cookie_data = base64.b64decode(cookies_raw.encode("utf-8"))
-            logger.info("Cookies base64 decodes")
+            # Sinon JSON
+            cookies_json = json.loads(cookies_raw)
+            cookie_data = pickle.dumps(cookies_json)
+            logger.info("Cookies JSON convertis en pickle")
         except Exception as e:
             logger.error(f"Decodage cookies: {e}")
             return False
@@ -48,15 +50,17 @@ def _prepare_cookies(account_id: str) -> bool:
     return True
 
 
-def upload_to_tiktok(config: AccountConfig, video_path: Path, video_title: str) -> bool:
+def upload_to_tiktok(config: AccountConfig, video_path: Path, video_title: str, account_name: str = None) -> bool:
     """Upload TikTok."""
     cli_path = Path("upstream/cli.py")
-    
     if not cli_path.exists():
         logger.error(f"CLI introuvable: {cli_path}")
         return False
     
-    if not _prepare_cookies(config.account_id):
+    # Utilise account_name si fourni, sinon config.account_name
+    acc_name = account_name or config.account_name
+    
+    if not _prepare_cookies(acc_name):
         return False
     
     # Validation tags
@@ -65,10 +69,11 @@ def upload_to_tiktok(config: AccountConfig, video_path: Path, video_title: str) 
         logger.warning(f"Tags problematiques: {reason}")
     
     clean_title = sanitize_content(video_title.replace(".mp4", "").replace(".mov", ""))
-    tags_str = " ".join(config.tags[:5])  # Max 5 tags TikTok pour eviter spam
+    tags_str = " ".join(config.tags[:5])  # Max 5 tags TikTok
     description = f"{clean_title} {tags_str}"
     
     uname = config.account_id.lower()
+    
     cmd = [
         sys.executable, str(cli_path), "upload",
         "--user", uname, "-v", str(video_path), "-t", description,
