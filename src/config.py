@@ -26,7 +26,6 @@ class ContentConfig:
 
 @dataclass
 class RateLimitConfig:
-    """Configuration anti-shadowban personnalisee par compte."""
     max_per_day: Optional[int] = None
     min_gap_minutes: Optional[int] = None
     max_per_hour: Optional[int] = None
@@ -56,7 +55,6 @@ class AccountConfig:
                 raise ValueError("drive_folder_ids vide et DRIVE_FOLDER_ID env non defini")
 
     def get_rate_limits(self) -> Dict[str, int]:
-        """Retourne les limites personnalisees ou defaults."""
         from src.core.rate_limiter import DEFAULT_LIMITS
         defaults = DEFAULT_LIMITS.get(self.platform, DEFAULT_LIMITS["youtube"])
         
@@ -77,10 +75,14 @@ def load_account_config(account_name: str) -> AccountConfig:
     with open(config_path, "r", encoding="utf-8") as f:
         data: Dict[str, Any] = json.load(f)
 
+    # Substituer les placeholders par les variables d'env
     drive_folder_ids = data.get("drive_folder_ids", [])
-    if not drive_folder_ids and data.get("drive_folder_id"):
-        drive_folder_ids = [data["drive_folder_id"]]
-    if drive_folder_ids and drive_folder_ids[0] in ("SECRET_DRIVE_FOLDER_ID", ""):
+    drive_folder_ids = [
+        os.environ.get("DRIVE_FOLDER_ID", folder_id) if folder_id == "$DRIVE_FOLDER_ID" else folder_id
+        for folder_id in drive_folder_ids
+    ]
+    
+    if not drive_folder_ids:
         env_id = os.environ.get("DRIVE_FOLDER_ID", "")
         if env_id:
             drive_folder_ids = [env_id]
