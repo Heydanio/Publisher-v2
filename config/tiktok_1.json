@@ -1,0 +1,8 @@
+{
+  "platform": "tiktok",
+  "account_id": "@asterionmeme_",
+  "drive_folder_ids": ["$DRIVE_FOLDER_ID"],
+  "schedule": {"slots_hours": [9, 12, 15, 17, 20]},
+  "tags": ["#fyp", "#viral", "#foryou", "#tiktok"],
+  "rate_limit": {"max_per_day": 4, "min_gap_minutes": 45, "max_per_hour": 1}
+}

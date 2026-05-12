@@ -1,0 +1,12 @@
+{
+  "platform": "youtube",
+  "account_id": "UCC1FQbn9V8QtjbBlEF7uTdw",
+  "drive_folder_ids": ["$DRIVE_FOLDER_ID"],
+  "schedule": {"slots_hours": [9, 12, 15, 17, 20]},
+  "content": {
+    "descriptions_file": "content/descriptions/CHAsderion.txt",
+    "tags_pool": ["#shorts", "#viral", "#trending", "#kirbykira"],
+    "youtube_category": "Entertainment"
+  },
+  "rate_limit": {"max_per_day": 3, "min_gap_minutes": 60, "max_per_hour": 1}
+}
