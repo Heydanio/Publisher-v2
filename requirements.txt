@@ -13,6 +13,7 @@ google-auth-httplib2==0.2.0
 
 # --- Database ---
 supabase==2.3.7
+httpx==0.24.1
 
 # --- TikTok (Selenium) ---
 selenium==4.15.2
