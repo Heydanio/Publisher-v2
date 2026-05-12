@@ -19,52 +19,42 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    
+
     strategy:
       fail-fast: false
       max-parallel: 1
       matrix:
-        # ============================================================
-        # AJOUTE TES COMPTES TIKTOK ICI - 1 LIGNE PAR COMPTE
-        # ============================================================
         account:
           - tiktok_1
-          # - tiktok_2   # Decommente pour activer
-          # - tiktok_3
-        # ============================================================
-    
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: 'pip'
-      
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-      
+
       - name: Checkout TikTok Uploader (FORK)
         uses: actions/checkout@v4
         with:
-          # ============================================================
-          # IMPORTANT: Forker https://github.com/makiisthenes/TiktokAutoUploader
-          # dans ton compte heydanio/TiktokAutoUploader puis utiliser ICI
-          # ============================================================
           repository: heydanio/TiktokAutoUploader
           ref: main
           path: upstream
-      
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install -r upstream/requirements.txt --no-deps
-      
+
       - name: Setup TikTok signature
         env:
           TIKTOK_BROWSER_JS_B64: ${{ secrets.TIKTOK_BROWSER_JS_B64 }}
@@ -74,7 +64,7 @@ jobs:
           echo "$TIKTOK_BROWSER_JS_B64" | base64 -d > tiktok_uploader/tiktok-signature/browser.js
           cd upstream/tiktok_uploader/tiktok-signature
           npm install --production
-      
+
       - name: Create TikTok config
         run: |
           cat > upstream/config.txt << 'CFGEOF'
@@ -90,14 +80,14 @@ jobs:
           TIKTOK_BASE_URL=https://www.tiktok.com/upload?lang=
           IMAGEMAGICK_BINARY=
           CFGEOF
-      
+
       - name: Random anti-bot delay
         if: ${{ github.event_name == 'schedule' }}
         run: |
           DELAY=$((60 + RANDOM % 540))
           echo "Waiting ${DELAY}s before publish..."
           sleep $DELAY
-      
+
       - name: Run Publisher for ${{ matrix.account }}
         if: ${{ github.event.inputs.account == '' || github.event.inputs.account == matrix.account }}
         env:
@@ -107,8 +97,8 @@ jobs:
           HUMAN_DELAY: '1'
           DRIVE_FOLDER_ID: ${{ secrets.DRIVE_FOLDER_ID }}
           GDRIVE_SA_JSON_B64: ${{ secrets.GDRIVE_SA_JSON_B64 }}
+          TIKTOK_BROWSER_JS_B64: ${{ secrets.TIKTOK_BROWSER_JS_B64 }}
           TIKTOK_COOKIES_TIKTOK_1: ${{ secrets.TIKTOK_COOKIES_TIKTOK_1 }}
-          # TIKTOK_COOKIES_TIKTOK_2: ${{ secrets.TIKTOK_COOKIES_TIKTOK_2 }}  # Pour 2eme compte
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
