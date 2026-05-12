@@ -1,7 +1,7 @@
 {
   "platform": "tiktok",
   "account_id": "@asterionmeme_",
-  "drive_folder_ids": ["***YOUR_FOLDER_ID_HERE***"],
+  "drive_folder_ids": ["$DRIVE_FOLDER_ID"],
   "schedule": {
     "slots_hours": [9, 14, 19]
   },
