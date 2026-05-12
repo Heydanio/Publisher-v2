@@ -56,7 +56,7 @@ jobs:
           # dans ton compte heydanio/TiktokAutoUploader puis utiliser ICI
           # ============================================================
           repository: heydanio/TiktokAutoUploader
-          ref: master
+          ref: main
           path: upstream
       
       - name: Install dependencies
