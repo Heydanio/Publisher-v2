@@ -53,33 +53,16 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install -r upstream/requirements.txt --no-deps
+          pip install -r upstream/requirements.txt
 
       - name: Setup TikTok signature
         env:
           TIKTOK_BROWSER_JS_B64: ${{ secrets.TIKTOK_BROWSER_JS_B64 }}
         run: |
-          mkdir -p tiktok_uploader/tiktok-signature
-          ln -s upstream/tiktok_uploader tiktok_uploader 2>/dev/null || true
-          echo "$TIKTOK_BROWSER_JS_B64" | base64 -d > tiktok_uploader/tiktok-signature/browser.js
+          mkdir -p upstream/tiktok_uploader/tiktok-signature
+          echo "$TIKTOK_BROWSER_JS_B64" | base64 -d > upstream/tiktok_uploader/tiktok-signature/browser.js
           cd upstream/tiktok_uploader/tiktok-signature
           npm install --production
-
-      - name: Create TikTok config
-        run: |
-          cat > upstream/config.txt << 'CFGEOF'
-          COOKIES_DIR=./CookiesDir
-          VIDEOS_DIR=./VideosDirPath
-          POST_PROCESSING_VIDEO_PATH=./VideosDirPath
-          IMAGEMAGICK_FONT=Arial
-          IMAGEMAGICK_FONT_SIZE=80
-          IMAGEMAGICK_TEXT_FOREGROUND_COLOR=white
-          IMAGEMAGICK_TEXT_BACKGROUND_COLOR=black
-          TMP_YOUTUBE_VIDEO_DIR=
-          LANG=en
-          TIKTOK_BASE_URL=https://www.tiktok.com/upload?lang=
-          IMAGEMAGICK_BINARY=
-          CFGEOF
 
       - name: Random anti-bot delay
         if: ${{ github.event_name == 'schedule' }}
