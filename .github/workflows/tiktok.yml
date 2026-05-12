@@ -1,8 +1,9 @@
-name: TikTok Publisher (Multi-Account)
+name: TikTok Publisher (Multi-Account) - TITAN V3
 
 on:
   schedule:
-    - cron: '0 8,11,14,16,19 * * *'
+    # Heures décalées (pas pile sur l'heure)
+    - cron: '13 8,11,14,16,19 * * *'
   workflow_dispatch:
     inputs:
       account:
@@ -19,49 +20,47 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     timeout-minutes: 30
-
     strategy:
       fail-fast: false
       max-parallel: 1
       matrix:
         account:
           - tiktok_1
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
+      
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: 'pip'
-
+      
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-
+      
       - name: Checkout TikTok Uploader (FORK)
         uses: actions/checkout@v4
         with:
           repository: heydanio/TiktokAutoUploader
           ref: main
           path: upstream
-
+      
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install -r upstream/requirements.txt
-
+      
       - name: Setup TikTok Cookies
         env:
           TIKTOK_COOKIES_TIKTOK_1: ${{ secrets.TIKTOK_COOKIES_TIKTOK_1 }}
         run: |
           mkdir -p upstream/CookiesDir
           echo "$TIKTOK_COOKIES_TIKTOK_1" | base64 -d > upstream/CookiesDir/tiktok_session-tiktok_1.cookie
-
+      
       - name: Setup TikTok signature
         env:
           TIKTOK_BROWSER_JS_B64: ${{ secrets.TIKTOK_BROWSER_JS_B64 }}
@@ -70,7 +69,7 @@ jobs:
           echo "$TIKTOK_BROWSER_JS_B64" | base64 -d > upstream/tiktok_uploader/tiktok-signature/browser.js
           cd upstream/tiktok_uploader/tiktok-signature
           npm install --production
-
+      
       - name: Create TikTok config
         run: |
           cat > upstream/config.txt << 'CFGEOF'
@@ -86,14 +85,15 @@ jobs:
           TIKTOK_BASE_URL=https://www.tiktok.com/upload?lang=
           IMAGEMAGICK_BINARY=
           CFGEOF
-
-      - name: Random anti-bot delay
+      
+      - name: Random anti-bot delay (TITAN V3)
         if: ${{ github.event_name == 'schedule' }}
         run: |
-          DELAY=$((60 + RANDOM % 540))
-          echo "Waiting ${DELAY}s before publish..."
+          # Jitter étendu: 60-840s pour casser le pattern cron
+          DELAY=$((60 + RANDOM % 840))
+          echo "🎲 TITAN V3 Jitter: ${DELAY}s ($(($DELAY / 60))min)"
           sleep $DELAY
-
+      
       - name: Run Publisher for ${{ matrix.account }}
         if: ${{ github.event.inputs.account == '' || github.event.inputs.account == matrix.account }}
         env:

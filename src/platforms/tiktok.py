@@ -1,4 +1,4 @@
-"""Upload TikTok (utilise fork heydanio/TiktokAutoUploader)."""
+"""Upload TikTok 2026 avec safeguards complets."""
 import os
 import sys
 import subprocess
@@ -8,27 +8,35 @@ import base64
 import shutil
 from pathlib import Path
 from src.config import AccountConfig
-from src.core.safeguards import validate_tags, sanitize_content
+from src.core.safeguards import (
+    validate_tags, 
+    sanitize_content, 
+    run_full_validation,
+)
+from src.core.anti_shadowban import (
+    generate_varied_description,
+    randomize_tag_order,
+)
+from src.utils.humanizer import humanize_description
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
 
 def _prepare_cookies(account_id: str) -> bool:
-    """Prepare les cookies depuis le fichier du workflow ou env."""
+    """Prépare les cookies depuis le fichier du workflow ou env."""
     Path("CookiesDir").mkdir(exist_ok=True)
     
     # Le workflow crée le fichier dans upstream/CookiesDir
     source = Path("upstream/CookiesDir/tiktok_session-tiktok_1.cookie")
     if source.exists():
-        # Copie depuis le workflow
         uname = account_id.lower().replace("@", "")
         dest = Path("CookiesDir") / f"tiktok_session-{uname}.cookie"
         shutil.copy(source, dest)
         logger.info(f"Cookie copie depuis workflow: {dest}")
         return True
     
-    # Fallback: décode depuis env TIKTOK_COOKIES_TIKTOK_1
+    # Fallback: env
     cookies_raw = os.environ.get("TIKTOK_COOKIES_TIKTOK_1")
     if not cookies_raw:
         logger.error("Cookies manquants (ni fichier ni env)")
@@ -57,8 +65,13 @@ def _prepare_cookies(account_id: str) -> bool:
     return True
 
 
-def upload_to_tiktok(config: AccountConfig, video_path: Path, video_title: str, account_name: str = None) -> bool:
-    """Upload TikTok."""
+def upload_to_tiktok(
+    config: AccountConfig, 
+    video_path: Path, 
+    video_title: str,
+    account_name: str = None
+) -> bool:
+    """Upload TikTok avec validation anti-shadowban 2026."""
     cli_path = Path("upstream/cli.py")
     if not cli_path.exists():
         logger.error(f"CLI introuvable: {cli_path}")
@@ -67,14 +80,36 @@ def upload_to_tiktok(config: AccountConfig, video_path: Path, video_title: str, 
     if not _prepare_cookies(config.account_id):
         return False
     
-    # Validation tags
-    valid, reason = validate_tags(config.tags, "tiktok")
-    if not valid:
-        logger.warning(f"Tags problematiques: {reason}")
-    
+    # === VALIDATION ANTI-SHADOWBAN 2026 ===
     clean_title = sanitize_content(video_title.replace(".mp4", "").replace(".mov", ""))
-    tags_str = " ".join(config.tags[:5])
-    description = f"{clean_title} {tags_str}"
+    
+    # Randomize tag order pour casser pattern
+    randomized_tags = randomize_tag_order(config.tags, seed=video_path.name)
+    
+    validation = run_full_validation(
+        platform="tiktok",
+        title=clean_title,
+        tags=randomized_tags,
+        description=clean_title,
+        video_path=video_path,
+        recent_titles=[]
+    )
+    
+    if not validation["valid"]:
+        logger.error("🛑 Upload BLOQUÉ par les safeguards 2026")
+        for err in validation["errors"]:
+            logger.error(f"  {err}")
+        return False
+    
+    # === GÉNÉRATION DESCRIPTION VARIÉE ===
+    description = generate_varied_description(
+        title=clean_title,
+        tags=randomized_tags,
+        seed=video_path.name
+    )
+    
+    # Humanize (anti-LLM detection)
+    description = humanize_description(description, seed=video_path.name)
     
     uname = config.account_id.lower().replace("@", "")
     
@@ -83,14 +118,15 @@ def upload_to_tiktok(config: AccountConfig, video_path: Path, video_title: str, 
         "--user", uname, "-v", str(video_path), "-t", description,
     ]
     
-    logger.info(f"Upload TikTok: {video_path.name}")
+    logger.info(f"📤 Upload TikTok: {video_path.name}")
+    logger.info(f"📝 Description: {description[:80]}...")
     
     try:
         result = subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=900)
-        logger.info("Upload TikTok reussi")
+        logger.info("✅ Upload TikTok reussi")
         return True
     except subprocess.TimeoutExpired:
-        logger.error("Upload timeout")
+        logger.error("Upload timeout (15min)")
         return False
     except subprocess.CalledProcessError as e:
         logger.error(f"Upload echec (code {e.returncode})")

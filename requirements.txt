@@ -1,21 +1,28 @@
-# Publisher-v2 - Production Dependencies
-
-# --- Core ---
-requests==2.31.0
-python-dotenv==1.0.0
-pytz==2023.3.post1
-
-# --- Google APIs ---
-google-api-python-client==2.116.0
-google-auth==2.25.2
-google-auth-oauthlib==1.2.0
-google-auth-httplib2==0.2.0
-
-# --- Database ---
-supabase==2.3.7
-httpx==0.24.1
+# === CORE ===
+supabase==2.5.0
 gotrue==2.5.0
+httpx==0.24.1
 
-# --- TikTok (Selenium) ---
-selenium==4.15.2
-undetected-chromedriver==3.5.4
+# === GOOGLE DRIVE ===
+google-api-python-client==2.108.0
+google-auth==2.23.4
+google-auth-oauthlib==1.1.0
+google-auth-httplib2==0.1.1
+
+# === UTILS ===
+python-dotenv==1.0.0
+requests==2.31.0
+pyyaml==6.0.1
+tenacity==8.2.3
+
+# === TIMEZONE ===
+tzdata==2024.1
+
+# === OPTIONNEL - OCR/Vidéo (pour content_validator) ===
+# Décommenter si OCR souhaité:
+# opencv-python-headless==4.8.1.78
+# pytesseract==0.3.10
+
+# === DEV/TEST ===
+# pytest==7.4.3
+# pytest-cov==4.1.0

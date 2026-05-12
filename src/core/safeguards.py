@@ -1,121 +1,102 @@
 """
-Safeguards pour eviter les comportements detectables comme spam.
-Validation du contenu avant upload.
+Safeguards centralisés - Pipeline Anti-Shadowban 2026
+
+Ce module orchestre toutes les validations:
+- anti_shadowban (hashtags, keywords, frequency)
+- content_validator (durée, taille, OCR)
+- ip_quality (datacenter detection)
+- warming (phase d'âge du compte)
 """
 import re
-from typing import List, Tuple
+from pathlib import Path
+from typing import Optional
 from src.utils.logger import get_logger
+from src.core.anti_shadowban import (
+    validate_hashtags as _validate_hashtags_new,
+    validate_keywords_in_text,
+    validate_upload_2026,
+    log_validation_result,
+    generate_varied_description,
+    randomize_tag_order,
+)
 
 logger = get_logger(__name__)
 
 
-# Tags spammy a eviter
-SPAM_TAGS = {
-    "follow4follow", "f4f", "like4like", "l4l", "follow", "followme",
-    "spam", "sub4sub", "subforsub",
-}
+# === Legacy compatibility ===
 
-# Patterns de titres spammy
-SPAM_PATTERNS = [
-    r'\b(MUST WATCH|YOU WONT BELIEVE|GONE WRONG|GONE SEXUAL)\b',
-    r'!{3,}',  # Plus de 3 points d'exclamation
-    r'\?{3,}',  # Plus de 3 points d'interrogation
-    r'[A-Z]{15,}',  # 15+ majuscules consecutives
-]
-
-
-def validate_tags(tags: List[str], platform: str = "youtube") -> Tuple[bool, str]:
+def validate_tags(tags: list, platform: str = "tiktok") -> tuple:
     """
-    Valide les tags pour eviter spam/shadowban.
-    
-    Args:
-        tags: Liste de tags
-        platform: youtube ou tiktok
+    Validation legacy + nouvelle validation 2026.
     
     Returns:
-        Tuple (valid: bool, reason: str)
+        (valid: bool, reason: str)
     """
-    if not tags:
-        return False, "Aucun tag fourni"
-    
-    # Limite de nombre de tags
-    max_tags = {"youtube": 15, "tiktok": 10}
-    if len(tags) > max_tags.get(platform, 10):
-        return False, f"Trop de tags: {len(tags)} > {max_tags[platform]}"
-    
-    # Verifier tags spammy
-    spammy_found = []
-    for tag in tags:
-        clean_tag = tag.lower().replace("#", "").strip()
-        if clean_tag in SPAM_TAGS:
-            spammy_found.append(tag)
-    
-    if spammy_found:
-        return False, f"Tags spammy detectes: {spammy_found}"
-    
-    # Verifier qu'il n'y a pas de doublons
-    unique_tags = set(t.lower() for t in tags)
-    if len(unique_tags) != len(tags):
-        return False, "Tags dupliques detectes"
-    
-    return True, "OK"
-
-
-def validate_title(title: str, platform: str = "youtube") -> Tuple[bool, str]:
-    """
-    Valide le titre pour eviter patterns spammy.
-    
-    Args:
-        title: Titre a valider
-        platform: youtube ou tiktok
-    
-    Returns:
-        Tuple (valid: bool, reason: str)
-    """
-    if not title or len(title.strip()) < 3:
-        return False, "Titre trop court"
-    
-    # Limites de longueur
-    max_length = {"youtube": 100, "tiktok": 150}
-    if len(title) > max_length.get(platform, 100):
-        return False, f"Titre trop long: {len(title)} > {max_length[platform]}"
-    
-    # Verifier patterns spammy
-    for pattern in SPAM_PATTERNS:
-        if re.search(pattern, title, re.IGNORECASE):
-            return False, f"Pattern spammy detecte: {pattern}"
-    
-    # Verifier ratio majuscules
-    if len(title) > 10:
-        upper_ratio = sum(1 for c in title if c.isupper()) / len(title)
-        if upper_ratio > 0.7:
-            return False, f"Trop de majuscules: {upper_ratio*100:.0f}%"
-    
-    return True, "OK"
-
-
-def validate_description(description: str) -> Tuple[bool, str]:
-    """Valide une description."""
-    if not description:
-        return True, "OK"  # Description vide OK
-    
-    if len(description) > 5000:
-        return False, "Description trop longue (>5000 chars)"
-    
-    # Compter les hashtags
-    hashtags = re.findall(r'#\w+', description)
-    if len(hashtags) > 30:
-        return False, f"Trop de hashtags: {len(hashtags)} > 30"
-    
-    return True, "OK"
+    return _validate_hashtags_new(tags, platform)
 
 
 def sanitize_content(text: str) -> str:
-    """Nettoie le contenu de caracteres suspects."""
-    # Supprimer caracteres invisibles/zero-width
-    text = re.sub(r'[\u200B-\u200F\u2028-\u202F\uFEFF]', '', text)
+    """
+    Nettoie le contenu (zero-width chars, whitespace, etc.).
+    """
+    if not text:
+        return ""
     
-    # Normaliser espaces
-    text = re.sub(r'\s+', ' ', text).strip()
+    # Remove zero-width characters
+    zero_width_chars = ['\u200b', '\u200c', '\u200d', '\ufeff', '\u2028', '\u2029']
+    for char in zero_width_chars:
+        text = text.replace(char, '')
     
-    return text
+    # Normalize whitespace
+    text = re.sub(r'\s+', ' ', text)
+    
+    # Strip
+    return text.strip()
+
+
+# === New 2026 validation ===
+
+def run_full_validation(
+    platform: str,
+    title: str,
+    tags: list,
+    description: str = "",
+    video_path: Optional[Path] = None,
+    recent_titles: Optional[list] = None,
+    log_result: bool = True
+) -> dict:
+    """
+    Pipeline de validation complet 2026.
+    
+    Returns:
+        dict avec validation complète
+    """
+    # Phase 1: Anti-shadowban (hashtags, keywords, IG)
+    result = validate_upload_2026(
+        platform=platform,
+        title=title,
+        tags=tags,
+        description=description,
+        recent_titles=recent_titles or []
+    )
+    
+    # Phase 2: Content validator (optional, si vidéo dispo)
+    if video_path and video_path.exists():
+        try:
+            from src.core.content_validator import validate_video_complete
+            content_result = validate_video_complete(video_path, platform)
+            
+            for check_name, check_ok, check_msg in content_result.get("checks", []):
+                if not check_ok:
+                    result["valid"] = False
+                    result["score"] -= 20
+                    result["errors"].append(f"📹 {check_name}: {check_msg}")
+            
+            result["warnings"].extend(content_result.get("warnings", []))
+        except ImportError:
+            logger.debug("content_validator non disponible")
+    
+    if log_result:
+        log_validation_result(result, title[:60])
+    
+    return result

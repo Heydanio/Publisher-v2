@@ -1,7 +1,9 @@
-name: YouTube Publisher (Multi-Account)
+name: YouTube Publisher (Multi-Account) - TITAN V3
+
 on:
   schedule:
-    - cron: '0 8,11,14,16,19 * * *'
+    # Heures décalées (pas pile sur l'heure pour éviter pattern bot)
+    - cron: '7 8,11,14,16,19 * * *'
   workflow_dispatch:
     inputs:
       account:
@@ -13,6 +15,7 @@ on:
         required: false
         type: boolean
         default: false
+
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -27,22 +30,27 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
           cache: 'pip'
+      
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
           pip install "git+https://github.com/tokland/youtube-upload.git@master"
-      - name: Random anti-bot delay
+      
+      - name: Random anti-bot delay (TITAN V3)
         if: ${{ github.event_name == 'schedule' }}
         run: |
-          DELAY=$((60 + RANDOM % 540))
-          echo "Waiting ${DELAY}s ($(($DELAY / 60))min) before publish..."
+          # Jitter étendu: 60s à 900s (15min) pour casser pattern cron
+          DELAY=$((60 + RANDOM % 840))
+          echo "🎲 TITAN V3 Jitter: ${DELAY}s ($(($DELAY / 60))min)"
           sleep $DELAY
+      
       - name: Run Publisher for ${{ matrix.account }}
         if: ${{ github.event.inputs.account == '' || github.event.inputs.account == matrix.account }}
         env:

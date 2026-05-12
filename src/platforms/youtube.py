@@ -1,124 +1,161 @@
-"""Upload YouTube via youtube-upload."""
+"""Upload YouTube 2026 avec safeguards complets."""
 import os
-import re
-import random
+import sys
 import subprocess
 import base64
 import tempfile
-import shutil
-import textwrap
 from pathlib import Path
-from typing import List
-
 from src.config import AccountConfig
-from src.core.safeguards import validate_tags, validate_title, sanitize_content
+from src.core.safeguards import (
+    sanitize_content,
+    run_full_validation,
+)
+from src.core.anti_shadowban import (
+    generate_varied_description,
+    randomize_tag_order,
+)
+from src.utils.humanizer import humanize_description
 from src.utils.logger import get_logger
 
 logger = get_logger(__name__)
 
 
-def get_random_description(filepath: str) -> str:
-    if not filepath or not os.path.exists(filepath):
-        return "Shorts"
-    with open(filepath, "r", encoding="utf-8") as f:
-        descriptions = [line.strip() for line in f if line.strip()]
-    return random.choice(descriptions) if descriptions else "Shorts"
+def _prepare_credentials(account_name: str) -> tuple:
+    """
+    Prépare les credentials YouTube depuis env.
+    
+    Returns:
+        (client_secrets_path, credentials_path)
+    """
+    tmp_dir = Path(tempfile.mkdtemp(prefix="yt_"))
+    
+    # Client secrets (commun)
+    client_secrets_b64 = os.environ.get("YT_CLIENT_SECRETS_B64")
+    if not client_secrets_b64:
+        raise RuntimeError("YT_CLIENT_SECRETS_B64 manquant")
+    
+    cs_path = tmp_dir / "client_secrets.json"
+    cs_path.write_bytes(base64.b64decode(client_secrets_b64))
+    
+    # Credentials (par compte)
+    if account_name == "youtube_compte2":
+        creds_b64 = os.environ.get("YT_CREDENTIALS_COMPTE2_B64")
+    else:
+        creds_b64 = os.environ.get("YT_CREDENTIALS_B64")
+    
+    if not creds_b64:
+        raise RuntimeError(f"Credentials manquants pour {account_name}")
+    
+    creds_path = tmp_dir / ".youtube-upload-credentials.json"
+    creds_path.write_bytes(base64.b64decode(creds_b64))
+    
+    return cs_path, creds_path
 
 
-def pick_tags(pool: List[str], min_n: int = 3, max_n: int = 8) -> List[str]:
-    if not pool:
+def _load_descriptions_pool(file_path: str) -> list:
+    """Charge la pool de descriptions depuis un fichier."""
+    path = Path(file_path)
+    if not path.exists():
+        logger.warning(f"Fichier descriptions introuvable: {path}")
         return []
-    n = min(random.randint(min_n, max_n), len(pool))
-    return random.sample(pool, n)
-
-
-def _setup_credentials(account_id: str) -> tuple:
-    """Decode credentials vers temp dir securise."""
-    temp_dir = Path(tempfile.mkdtemp(prefix="yt_creds_"))
-    cs_file = temp_dir / f"{account_id}_client_secrets.json"
-    creds_file = temp_dir / f"{account_id}_credentials.json"
     
-    cs_b64 = os.environ.get("YT_CLIENT_SECRETS_B64", "")
-    creds_b64 = os.environ.get("YT_CREDENTIALS_B64", "")
-    
-    if not cs_b64 or not creds_b64:
-        raise ValueError("YT_CLIENT_SECRETS_B64 ou YT_CREDENTIALS_B64 manquant")
-    
-    cs_file.write_bytes(base64.b64decode(cs_b64))
-    creds_file.write_bytes(base64.b64decode(creds_b64))
-    return str(cs_file), str(creds_file)
+    content = path.read_text(encoding='utf-8')
+    # Split par double newline ou par marker "---"
+    descriptions = [d.strip() for d in content.split('\n\n') if d.strip()]
+    return descriptions
 
 
-def _cleanup(cs_file: str) -> None:
-    """Cleanup credentials temporaires."""
+def upload_to_youtube(
+    config: AccountConfig,
+    video_path: Path,
+    video_title: str,
+    account_name: str = None
+) -> bool:
+    """Upload YouTube avec validation anti-shadowban 2026."""
+    
+    acc_name = account_name or config.account_name
+    
+    # === VALIDATION ANTI-SHADOWBAN 2026 ===
+    clean_title = sanitize_content(video_title.replace(".mp4", "").replace(".mov", ""))
+    
+    tags_pool = config.content.tags_pool if hasattr(config.content, 'tags_pool') else []
+    randomized_tags = randomize_tag_order(tags_pool[:15], seed=video_path.name)
+    
+    validation = run_full_validation(
+        platform="youtube",
+        title=clean_title,
+        tags=randomized_tags,
+        description=clean_title,
+        video_path=video_path,
+        recent_titles=[]
+    )
+    
+    if not validation["valid"]:
+        logger.error("🛑 Upload BLOQUÉ par les safeguards 2026")
+        for err in validation["errors"]:
+            logger.error(f"  {err}")
+        return False
+    
+    # === DESCRIPTION VARIÉE ===
+    descriptions_pool = []
+    if hasattr(config.content, 'descriptions_file'):
+        descriptions_pool = _load_descriptions_pool(config.content.descriptions_file)
+    
+    if descriptions_pool:
+        import random
+        random.seed(video_path.name)
+        base_description = random.choice(descriptions_pool)
+        random.seed()
+    else:
+        base_description = generate_varied_description(
+            title=clean_title,
+            tags=randomized_tags,
+            seed=video_path.name
+        )
+    
+    description = humanize_description(base_description, seed=video_path.name)
+    
+    # === CREDENTIALS ===
     try:
-        parent = Path(cs_file).parent
-        if parent.name.startswith("yt_creds_"):
-            shutil.rmtree(parent)
+        cs_path, creds_path = _prepare_credentials(acc_name)
     except Exception as e:
-        logger.warning(f"Cleanup: {e}")
-
-
-def upload_to_youtube(config: AccountConfig, video_path: Path, video_name: str) -> bool:
-    """Upload YouTube avec validation anti-spam."""
-    cs_file = ""
+        logger.error(f"Credentials: {e}")
+        return False
+    
+    # === COMMAND ===
+    category = "Entertainment"
+    if hasattr(config.content, 'youtube_category'):
+        category = config.content.youtube_category
+    
+    cmd = [
+        "youtube-upload",
+        "--title", clean_title[:100],
+        "--description", description[:5000],
+        "--category", category,
+        "--tags", ",".join([t.lstrip("#") for t in randomized_tags[:15]]),
+        "--client-secrets", str(cs_path),
+        "--credentials-file", str(creds_path),
+        "--privacy", "public",
+        str(video_path),
+    ]
+    
+    logger.info(f"📤 Upload YouTube: {video_path.name}")
+    logger.info(f"📝 Titre: {clean_title[:60]}")
     
     try:
-        cs_file, creds_file = _setup_credentials(config.account_id)
-        
-        # Preparer metadonnees
-        desc = sanitize_content(get_random_description(config.content.descriptions_file or ""))
-        raw_title = desc.split('#')[0].strip()
-        if not raw_title:
-            raw_title = f"Video - {config.account_id}"
-        title = textwrap.shorten(raw_title, width=95, placeholder="...")
-        title = sanitize_content(title)
-        
-        tags = pick_tags(config.content.tags_pool, 4, 10)
-        
-        # Validation anti-spam
-        valid, reason = validate_title(title, "youtube")
-        if not valid:
-            logger.error(f"Titre invalide: {reason}")
-            return False
-        
-        valid, reason = validate_tags(tags, "youtube")
-        if not valid:
-            logger.warning(f"Tags invalides: {reason}. Utilisation d'un set safe.")
-            tags = tags[:8]  # Reduire et continuer
-        
-        category = config.content.youtube_category
-        
-        logger.info(f"Titre: {title}")
-        logger.info(f"Tags: {tags}")
-        
-        cmd = [
-            "youtube-upload",
-            "--client-secrets", cs_file,
-            "--credentials-file", creds_file,
-            "--title", title,
-            "--description", desc,
-            "--tags", ",".join(tags),
-            "--category", category,
-            "--privacy", "public",
-            str(video_path),
-        ]
-        
-        result = subprocess.run(cmd, check=True, capture_output=True, text=True, timeout=600)
-        logger.info("Upload YouTube reussi")
+        result = subprocess.run(
+            cmd, check=True, capture_output=True, text=True, timeout=1200
+        )
+        logger.info("✅ Upload YouTube réussi")
         return True
-        
     except subprocess.TimeoutExpired:
-        logger.error("Upload timeout")
+        logger.error("Upload timeout (20min)")
         return False
     except subprocess.CalledProcessError as e:
-        logger.error(f"Upload echec (code {e.returncode})")
+        logger.error(f"Upload échec (code {e.returncode})")
         if e.stderr:
             logger.error(f"STDERR: {e.stderr[:500]}")
         return False
     except Exception as e:
         logger.error(f"Erreur: {e}")
         return False
-    finally:
-        if cs_file:
-            _cleanup(cs_file)
