@@ -48,7 +48,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install "git+https://github.com/tokland/youtube-upload.git@fed2e11d5ab98c9812f5e39b13f59a0b4f7a2c6f"
+          pip install "git+https://github.com/tokland/youtube-upload.git@master"
       
       - name: Random anti-bot delay
         if: ${{ github.event_name == 'schedule' }}
