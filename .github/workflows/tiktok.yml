@@ -55,6 +55,13 @@ jobs:
           pip install -r requirements.txt
           pip install -r upstream/requirements.txt
 
+      - name: Setup TikTok Cookies
+        env:
+          TIKTOK_COOKIES_TIKTOK_1: ${{ secrets.TIKTOK_COOKIES_TIKTOK_1 }}
+        run: |
+          mkdir -p upstream/CookiesDir
+          echo "$TIKTOK_COOKIES_TIKTOK_1" | base64 -d > upstream/CookiesDir/tiktok_session-tiktok_1.cookie
+
       - name: Setup TikTok signature
         env:
           TIKTOK_BROWSER_JS_B64: ${{ secrets.TIKTOK_BROWSER_JS_B64 }}
@@ -63,6 +70,22 @@ jobs:
           echo "$TIKTOK_BROWSER_JS_B64" | base64 -d > upstream/tiktok_uploader/tiktok-signature/browser.js
           cd upstream/tiktok_uploader/tiktok-signature
           npm install --production
+
+      - name: Create TikTok config
+        run: |
+          cat > upstream/config.txt << 'CFGEOF'
+          COOKIES_DIR=./CookiesDir
+          VIDEOS_DIR=./VideosDirPath
+          POST_PROCESSING_VIDEO_PATH=./VideosDirPath
+          IMAGEMAGICK_FONT=Arial
+          IMAGEMAGICK_FONT_SIZE=80
+          IMAGEMAGICK_TEXT_FOREGROUND_COLOR=white
+          IMAGEMAGICK_TEXT_BACKGROUND_COLOR=black
+          TMP_YOUTUBE_VIDEO_DIR=
+          LANG=en
+          TIKTOK_BASE_URL=https://www.tiktok.com/upload?lang=
+          IMAGEMAGICK_BINARY=
+          CFGEOF
 
       - name: Random anti-bot delay
         if: ${{ github.event_name == 'schedule' }}
@@ -81,7 +104,6 @@ jobs:
           DRIVE_FOLDER_ID: ${{ secrets.DRIVE_FOLDER_ID }}
           GDRIVE_SA_JSON_B64: ${{ secrets.GDRIVE_SA_JSON_B64 }}
           TIKTOK_BROWSER_JS_B64: ${{ secrets.TIKTOK_BROWSER_JS_B64 }}
-          TIKTOK_COOKIES_TIKTOK_1: ${{ secrets.TIKTOK_COOKIES_TIKTOK_1 }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
