@@ -1,4 +1,4 @@
-"""Notifications Discord avec embeds riches."""
+"""Notifications Discord avec embeds riches - 3 couleurs TITAN V3."""
 import os
 from typing import Optional, Dict, Any
 import requests
@@ -33,18 +33,18 @@ def send_discord_notification(message: str) -> bool:
 
 
 def send_success_notification(platform: str, account_id: str, video_name: str, time_str: str) -> bool:
-    """Notification de succes avec embed."""
+    """🟢 GREEN - Notification de succès avec embed."""
     colors = {"youtube": 0xFF0000, "tiktok": 0x000000}
     embed = {
-        "title": f"Publication reussie - {platform.upper()}",
-        "color": colors.get(platform, 0x00FF00),
+        "title": f"✅ Publication réussie - {platform.upper()}",
+        "color": 0x00FF00,  # GREEN
         "fields": [
             {"name": "Compte", "value": account_id, "inline": True},
             {"name": "Plateforme", "value": platform.upper(), "inline": True},
             {"name": "Heure", "value": time_str, "inline": True},
             {"name": "Video", "value": f"`{video_name[:200]}`", "inline": False},
         ],
-        "footer": {"text": "Publisher-v2 by heydanio"},
+        "footer": {"text": "Publisher-v2 TITAN V3 | ✅ SUCCESS"},
     }
     try:
         return _send({"embeds": [embed]})
@@ -54,15 +54,15 @@ def send_success_notification(platform: str, account_id: str, video_name: str, t
 
 
 def send_error_notification(platform: str, account_id: str, error_message: str) -> bool:
-    """Notification d'erreur."""
+    """🔴 RED - Notification d'erreur (vraie erreur)."""
     embed = {
-        "title": f"Erreur - {platform.upper()}",
-        "color": 0xFF0000,
+        "title": f"❌ Erreur - {platform.upper()}",
+        "color": 0xFF0000,  # RED
         "fields": [
             {"name": "Compte", "value": account_id, "inline": True},
             {"name": "Erreur", "value": f"```{error_message[:1000]}```", "inline": False},
         ],
-        "footer": {"text": "Publisher-v2 by heydanio"},
+        "footer": {"text": "Publisher-v2 TITAN V3 | ❌ ERROR"},
     }
     try:
         return _send({"embeds": [embed]})
@@ -72,16 +72,16 @@ def send_error_notification(platform: str, account_id: str, error_message: str) 
 
 
 def send_rate_limit_notification(platform: str, account_id: str, reason: str) -> bool:
-    """Notification de rate limit (orange)."""
+    """🟠 ORANGE - Notification de rate limit (semi-succès, pas d'upload mais workflow OK)."""
     embed = {
-        "title": f"Rate Limit - {platform.upper()}",
-        "color": 0xFFA500,
-        "description": "Upload reporte pour eviter shadowban",
+        "title": f"⏸️ Rate Limit - {platform.upper()}",
+        "color": 0xFFA500,  # ORANGE
+        "description": "Upload reporté pour éviter shadowban - Workflow SUCCESS",
         "fields": [
             {"name": "Compte", "value": account_id, "inline": True},
             {"name": "Raison", "value": reason, "inline": False},
         ],
-        "footer": {"text": "Publisher-v2 by heydanio | Anti-shadowban"},
+        "footer": {"text": "Publisher-v2 TITAN V3 | ⏸️ RATE_LIMITED"},
     }
     try:
         return _send({"embeds": [embed]})
