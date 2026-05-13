@@ -1,0 +1,42 @@
+name: 🔄 Fallback Runners - Activity Insurance
+
+on:
+  schedule:
+    - cron: '0 6 * * 0'
+    - cron: '0 6 * * 3'
+  workflow_dispatch:
+
+jobs:
+  fallback:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      - name: ✅ Dummy Workflow Check
+        run: |
+          echo "════════════════════════════════════════════════════════════"
+          echo "🔄 FALLBACK RUNNER EXECUTED"
+          echo "════════════════════════════════════════════════════════════"
+          echo "Purpose: Ensure GitHub sees regular activity"
+          echo "Time: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+          echo "Status: ✅ ALIVE"
+          echo "════════════════════════════════════════════════════════════"
+
+      - name: 📝 Log Activity
+        run: |
+          mkdir -p .github/activity-logs
+          echo "Fallback Run: $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> .github/activity-logs/fallback.log
+
+      - name: 🔐 Configure Git
+        run: |
+          git config --global user.name "🔄 Fallback Runner"
+          git config --global user.email "fallback@github.com"
+
+      - name: 📤 Commit Activity
+        run: |
+          git add .github/activity-logs/fallback.log 2>/dev/null || true
+          COMMIT_MSG="🔄 Fallback Run: $(date -u +'%Y-%m-%d %H:%M:%S') | Anti-suspension"
+          git commit -m "$COMMIT_MSG" 2>/dev/null || echo "ℹ️ No changes"
+          git push 2>/dev/null || echo "ℹ️ Nothing to push"

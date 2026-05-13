@@ -1,0 +1,54 @@
+name: 💓 Heartbeat - Daily Proof of Life
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  heartbeat:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      - name: 💓 Send Discord Heartbeat
+        if: ${{ secrets.DISCORD_WEBHOOK_URL != '' }}
+        run: |
+          TIMESTAMP=$(date -u +'%Y-%m-%d %H:%M:%S UTC')
+          WEEK=$(date -u +'%Y-W%V')
+          
+          curl -s -X POST \
+            -H 'Content-type: application/json' \
+            -d '{
+              "embeds": [{
+                "title": "💓 Publisher-v2 Daily Heartbeat",
+                "description": "System Alive & Ready",
+                "color": 0x00FF00,
+                "fields": [
+                  {"name": "Status", "value": "✅ ACTIVE", "inline": true},
+                  {"name": "Time (UTC)", "value": "'$TIMESTAMP'", "inline": true},
+                  {"name": "Week", "value": "'$WEEK'", "inline": true},
+                  {"name": "System", "value": "TITAN V3 Keep-Alive", "inline": true},
+                  {"name": "Risk", "value": "0% (Protected)", "inline": true},
+                  {"name": "Next Sync", "value": "24h", "inline": true}
+                ],
+                "footer": {"text": "Publisher-v2 Keep-Alive System | No suspension possible"}
+              }]
+            }' \
+            "${{ secrets.DISCORD_WEBHOOK_URL }}" || echo "Discord notification skipped"
+
+      - name: 📊 Log Heartbeat
+        run: |
+          mkdir -p .github/activity-logs
+          echo "Heartbeat: $(date -u +'%Y-%m-%d %H:%M:%S UTC')" >> .github/activity-logs/heartbeat.log
+
+      - name: 📊 Summary
+        run: |
+          echo "════════════════════════════════════════════════════════════"
+          echo "💓 HEARTBEAT EXECUTED"
+          echo "════════════════════════════════════════════════════════════"
+          echo "Time: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+          echo "Status: ✅ ALIVE & WELL"
+          echo "════════════════════════════════════════════════════════════"

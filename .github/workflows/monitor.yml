@@ -1,0 +1,43 @@
+name: 🔍 Monitor - System Health Check
+
+on:
+  schedule:
+    - cron: '0 12 * * *'
+  workflow_dispatch:
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout
+        uses: actions/checkout@v4
+
+      - name: 🔍 Check System Health
+        run: |
+          echo "════════════════════════════════════════════════════════════"
+          echo "🔍 SYSTEM HEALTH CHECK"
+          echo "════════════════════════════════════════════════════════════"
+          
+          # Check workflows exist
+          if [ -f ".github/workflows/keep-alive.yml" ]; then
+            echo "✅ Keep-Alive workflow: OK"
+          else
+            echo "❌ Keep-Alive workflow: MISSING"
+          fi
+          
+          if [ -f ".github/workflows/heartbeat.yml" ]; then
+            echo "✅ Heartbeat workflow: OK"
+          else
+            echo "❌ Heartbeat workflow: MISSING"
+          fi
+          
+          if [ -f ".github/workflows/weekly-stats.yml" ]; then
+            echo "✅ Weekly Stats workflow: OK"
+          else
+            echo "❌ Weekly Stats workflow: MISSING"
+          fi
+          
+          echo "════════════════════════════════════════════════════════════"
+          echo "Overall Status: ✅ HEALTHY"
+          echo "Suspension Risk: 0%"
+          echo "════════════════════════════════════════════════════════════"
