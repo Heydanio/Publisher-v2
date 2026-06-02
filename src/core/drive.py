@@ -67,38 +67,85 @@ def _list_videos(folder_id: str) -> List[Dict[str, str]]:
     return all_videos
 
 
+_BATCH_FETCH_FAILED = object()  # sentinel
+
+
+def _get_published_ids_batch(account_name: str, platform: str):
+    """
+    Recupere tous les drive_file_id deja publies en une requete.
+    Retourne un set, ou _BATCH_FETCH_FAILED si erreur.
+    """
+    from src.core.state import get_supabase_client
+    try:
+        client = get_supabase_client()
+        # Supabase default limit = 1000. range() pour paginer si besoin.
+        all_ids: set = set()
+        offset = 0
+        page_size = 1000
+        while True:
+            response = (
+                client.table("published_videos")
+                .select("drive_file_id")
+                .eq("account_name", account_name)
+                .eq("platform", platform)
+                .range(offset, offset + page_size - 1)
+                .execute()
+            )
+            rows = response.data or []
+            all_ids.update(row["drive_file_id"] for row in rows)
+            if len(rows) < page_size:
+                break
+            offset += page_size
+        logger.info(f"IDs publies en cache: {len(all_ids)}")
+        return all_ids
+    except Exception as e:
+        logger.warning(f"Batch fetch publie echec, fallback une-par-une: {e}")
+        return _BATCH_FETCH_FAILED
+
+
 def get_unpublished_video(
     account_name: str,
     folder_ids: List[str],
     platform: str = "youtube"
 ) -> Optional[Dict[str, str]]:
-    """Trouve la premiere video non publiee."""
+    """Trouve la premiere video non publiee (batch Supabase check)."""
     service = get_drive_service()
-    
+
+    # 1 requete Supabase pour tous les IDs publies
+    batch = _get_published_ids_batch(account_name, platform)
+    batch_ok = batch is not _BATCH_FETCH_FAILED
+
     for folder_id in folder_ids:
         logger.info(f"Scan dossier: {folder_id}")
-        
+
         try:
             folder_info = service.files().get(fileId=folder_id, fields="name").execute()
             logger.info(f"Dossier: {folder_info.get('name')}")
         except Exception as e:
             logger.error(f"Acces dossier {folder_id} echec: {e}")
             continue
-        
+
         try:
             videos = _list_videos(folder_id)
             logger.info(f"Videos trouvees: {len(videos)}")
         except Exception as e:
             logger.error(f"Scan {folder_id} echec: {e}")
             continue
-        
+
         for video in videos:
-            if not is_video_published(account_name, video['id'], platform):
-                logger.info(f"Match: {video['name']}")
-                return video
+            vid_id = video['id']
+            if batch_ok:
+                if vid_id in batch:
+                    logger.debug(f"Deja publiee: {video['name']}")
+                    continue
             else:
-                logger.debug(f"Deja publiee: {video['name']}")
-    
+                # Fallback: check individuel (lent mais fiable)
+                if is_video_published(account_name, vid_id, platform):
+                    logger.debug(f"Deja publiee: {video['name']}")
+                    continue
+            logger.info(f"Match: {video['name']}")
+            return video
+
     logger.info("Aucune video disponible")
     return None
 

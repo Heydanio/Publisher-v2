@@ -14,22 +14,28 @@ jobs:
         uses: actions/checkout@v4
 
       - name: 💓 Send Discord Heartbeat
-        if: ${{ secrets.DISCORD_WEBHOOK_URL != '' }}
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
           TIMESTAMP=$(date -u +'%Y-%m-%d %H:%M:%S UTC')
           WEEK=$(date -u +'%Y-W%V')
-          
+
+          if [ -z "$DISCORD_WEBHOOK_URL" ]; then
+            echo "Discord webhook non configuré, skip"
+            exit 0
+          fi
+
           curl -s -X POST \
             -H 'Content-type: application/json' \
             -d '{
               "embeds": [{
                 "title": "💓 Publisher-v2 Daily Heartbeat",
                 "description": "System Alive & Ready",
-                "color": 0x00FF00,
+                "color": 65280,
                 "fields": [
                   {"name": "Status", "value": "✅ ACTIVE", "inline": true},
-                  {"name": "Time (UTC)", "value": "'$TIMESTAMP'", "inline": true},
-                  {"name": "Week", "value": "'$WEEK'", "inline": true},
+                  {"name": "Time (UTC)", "value": "'"$TIMESTAMP"'", "inline": true},
+                  {"name": "Week", "value": "'"$WEEK"'", "inline": true},
                   {"name": "System", "value": "TITAN V3 Keep-Alive", "inline": true},
                   {"name": "Risk", "value": "0% (Protected)", "inline": true},
                   {"name": "Next Sync", "value": "24h", "inline": true}
@@ -37,7 +43,7 @@ jobs:
                 "footer": {"text": "Publisher-v2 Keep-Alive System | No suspension possible"}
               }]
             }' \
-            "${{ secrets.DISCORD_WEBHOOK_URL }}" || echo "Discord notification skipped"
+            "$DISCORD_WEBHOOK_URL" || echo "Discord notification skipped"
 
       - name: 📊 Log Heartbeat
         run: |

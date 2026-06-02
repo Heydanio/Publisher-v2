@@ -2,8 +2,8 @@ name: YouTube Publisher (Multi-Account) - TITAN V3
 
 on:
   schedule:
-    # Heures décalées (pas pile sur l'heure pour éviter pattern bot)
-    - cron: '7 8,11,14,16,19 * * *'
+    # UTC+2 (Paris été): 7,9,10,12,13,15,16,18,19 UTC couvre les 2 comptes
+    - cron: '7 7,9,10,12,13,15,16,18,19 * * *'
   workflow_dispatch:
     inputs:
       account:
@@ -41,7 +41,6 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install "git+https://github.com/tokland/youtube-upload.git@master"
       
       - name: Random anti-bot delay (TITAN V3)
         if: ${{ github.event_name == 'schedule' }}

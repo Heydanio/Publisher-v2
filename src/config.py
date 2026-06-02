@@ -14,7 +14,13 @@ class ScheduleConfig:
     slots_hours: List[int] = field(default_factory=list)
 
     def is_publishing_time(self, current_hour: int, current_minute: int) -> bool:
-        return current_hour in self.slots_hours and current_minute < 55
+        # Tolerance ±30min: couvre jitter workflow (60-840s) + retards GitHub Actions
+        current_total = current_hour * 60 + current_minute
+        for slot_hour in self.slots_hours:
+            slot_total = slot_hour * 60
+            if abs(current_total - slot_total) <= 30:
+                return True
+        return False
 
 
 @dataclass

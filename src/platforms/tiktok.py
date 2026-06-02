@@ -81,7 +81,7 @@ def upload_to_tiktok(
         return False
     
     # === VALIDATION ANTI-SHADOWBAN 2026 ===
-    clean_title = sanitize_content(video_title.replace(".mp4", "").replace(".mov", ""))
+    clean_title = sanitize_content(video_title.replace(".mp4", "").replace(".MP4", "").replace(".mov", "").replace(".MOV", ""))
     
     # Randomize tag order pour casser pattern
     randomized_tags = randomize_tag_order(config.tags, seed=video_path.name)
