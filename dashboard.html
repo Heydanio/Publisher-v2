@@ -1,0 +1,1931 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Publisher-v2 · TITAN V3 Dashboard</title>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --bg2: #111118;
+    --bg3: #1a1a24;
+    --border: #2a2a3a;
+    --border2: #3a3a50;
+    --text: #e8e8f0;
+    --text2: #9090b0;
+    --text3: #5a5a7a;
+    --green: #22c55e;
+    --green-dim: #16532e;
+    --red: #ef4444;
+    --red-dim: #5a1a1a;
+    --orange: #f97316;
+    --orange-dim: #5a2a0a;
+    --blue: #3b82f6;
+    --blue-dim: #1a2a5a;
+    --purple: #a855f7;
+    --purple-dim: #3a1a5a;
+    --yellow: #eab308;
+    --accent: #6366f1;
+    --accent2: #818cf8;
+    --card-shadow: 0 4px 24px rgba(0,0,0,0.4);
+    --radius: 12px;
+    --radius-sm: 8px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    min-height: 100vh;
+  }
+
+  /* ── Layout ── */
+  .app { display: flex; flex-direction: column; min-height: 100vh; }
+
+  header {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+  }
+  .logo-icon {
+    width: 32px; height: 32px;
+    background: linear-gradient(135deg, var(--accent), var(--purple));
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+  }
+  .logo-sub { color: var(--text2); font-weight: 400; font-size: 12px; margin-left: 4px; }
+
+  .header-actions { display: flex; align-items: center; gap: 12px; }
+  .status-bar {
+    display: flex; align-items: center; gap: 6px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 5px 12px;
+    font-size: 12px;
+  }
+  .pulse {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--green);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity:1; transform:scale(1); }
+    50% { opacity:0.5; transform:scale(1.3); }
+  }
+
+  nav {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    display: flex;
+    gap: 4px;
+    overflow-x: auto;
+  }
+  .nav-tab {
+    padding: 12px 16px;
+    border: none;
+    background: none;
+    color: var(--text2);
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    border-bottom: 2px solid transparent;
+    transition: all 0.15s;
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .nav-tab:hover { color: var(--text); }
+  .nav-tab.active {
+    color: var(--accent2);
+    border-bottom-color: var(--accent);
+  }
+
+  main { flex: 1; padding: 24px; max-width: 1400px; margin: 0 auto; width: 100%; }
+
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* ── Setup Banner ── */
+  #setup-banner {
+    background: linear-gradient(135deg, #1a1a30, #1a1030);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 20px 24px;
+    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  #setup-banner.hidden { display: none; }
+  .setup-text h3 { font-size: 15px; margin-bottom: 4px; }
+  .setup-text p { color: var(--text2); font-size: 12px; }
+  .setup-inputs { display: flex; gap: 10px; flex-wrap: wrap; }
+  .setup-inputs input {
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-sm);
+    padding: 8px 12px;
+    color: var(--text);
+    font-size: 12px;
+    width: 260px;
+  }
+  .setup-inputs input:focus { outline: none; border-color: var(--accent); }
+
+  /* ── Cards ── */
+  .grid { display: grid; gap: 16px; }
+  .grid-2 { grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); }
+  .grid-3 { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+  .grid-4 { grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    box-shadow: var(--card-shadow);
+  }
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .card-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text2);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  /* ── Stat Cards ── */
+  .stat-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+  }
+  .stat-label { color: var(--text2); font-size: 12px; margin-bottom: 6px; }
+  .stat-value { font-size: 28px; font-weight: 700; }
+  .stat-sub { color: var(--text3); font-size: 11px; margin-top: 4px; }
+  .stat-trend { font-size: 11px; margin-top: 6px; }
+  .trend-up { color: var(--green); }
+  .trend-down { color: var(--red); }
+
+  /* ── Account Cards ── */
+  .account-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    transition: border-color 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .account-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+  }
+  .account-card.ok::before { background: var(--green); }
+  .account-card.error::before { background: var(--red); }
+  .account-card.warning::before { background: var(--orange); }
+  .account-card.unknown::before { background: var(--text3); }
+
+  .account-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+  .account-info { flex: 1; }
+  .account-name {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 3px;
+  }
+  .account-id { color: var(--text3); font-size: 11px; font-family: monospace; }
+  .account-platform {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 20px;
+    margin-bottom: 4px;
+  }
+  .platform-youtube { background: rgba(255,0,0,0.15); color: #ff6666; }
+  .platform-tiktok { background: rgba(0,200,200,0.1); color: #00d4d4; }
+
+  .status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .status-badge.ok { background: var(--green-dim); color: var(--green); }
+  .status-badge.error { background: var(--red-dim); color: var(--red); }
+  .status-badge.warning { background: var(--orange-dim); color: var(--orange); }
+  .status-badge.rate-limited { background: var(--orange-dim); color: var(--orange); }
+  .status-badge.unknown { background: var(--bg3); color: var(--text3); }
+  .status-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+  .account-stats {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 8px;
+    margin: 14px 0;
+  }
+  .account-stat {
+    background: var(--bg3);
+    border-radius: var(--radius-sm);
+    padding: 8px 10px;
+  }
+  .account-stat-label { color: var(--text3); font-size: 10px; margin-bottom: 2px; }
+  .account-stat-value { font-size: 16px; font-weight: 700; }
+
+  .account-schedule {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+  .slot-badge {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 2px 7px;
+    font-size: 11px;
+    font-family: monospace;
+    color: var(--text2);
+  }
+  .slot-badge.next {
+    border-color: var(--accent);
+    color: var(--accent2);
+    background: var(--blue-dim);
+  }
+
+  .account-actions {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    border-top: 1px solid var(--border);
+    padding-top: 14px;
+    margin-top: 4px;
+  }
+
+  .last-upload {
+    font-size: 11px;
+    color: var(--text3);
+    margin-bottom: 10px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+
+  /* ── Buttons ── */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 12px;
+    border-radius: var(--radius-sm);
+    border: none;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-primary:hover:not(:disabled) { background: #4f52d9; }
+  .btn-green { background: var(--green-dim); color: var(--green); border: 1px solid #1a4a2a; }
+  .btn-green:hover:not(:disabled) { background: #1a4a2a; }
+  .btn-red { background: var(--red-dim); color: var(--red); border: 1px solid #5a1a1a; }
+  .btn-red:hover:not(:disabled) { background: #4a1010; }
+  .btn-orange { background: var(--orange-dim); color: var(--orange); border: 1px solid #4a2010; }
+  .btn-orange:hover:not(:disabled) { background: #4a2010; }
+  .btn-blue { background: var(--blue-dim); color: var(--blue); border: 1px solid #1a3060; }
+  .btn-blue:hover:not(:disabled) { background: #1a3060; }
+  .btn-ghost { background: transparent; color: var(--text2); border: 1px solid var(--border); }
+  .btn-ghost:hover:not(:disabled) { background: var(--bg3); color: var(--text); }
+  .btn-purple { background: var(--purple-dim); color: var(--purple); border: 1px solid #4a1a6a; }
+  .btn-purple:hover:not(:disabled) { background: #4a1a6a; }
+  .btn-sm { padding: 4px 8px; font-size: 11px; }
+  .btn-lg { padding: 10px 20px; font-size: 14px; }
+  .spin { animation: spin 1s linear infinite; display: inline-block; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── Section headers ── */
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .section-title {
+    font-size: 16px;
+    font-weight: 700;
+  }
+  .section-sub { color: var(--text2); font-size: 12px; margin-top: 2px; }
+
+  /* ── Log / Debug ── */
+  .log-container {
+    background: #050508;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    font-family: 'Cascadia Code', 'Fira Code', 'Courier New', monospace;
+    font-size: 12px;
+    max-height: 400px;
+    overflow-y: auto;
+    line-height: 1.6;
+  }
+  .log-entry { display: flex; gap: 8px; margin-bottom: 2px; }
+  .log-time { color: var(--text3); flex-shrink: 0; }
+  .log-level { flex-shrink: 0; width: 60px; font-weight: 700; }
+  .log-level.info { color: var(--green); }
+  .log-level.warn { color: var(--orange); }
+  .log-level.error { color: var(--red); }
+  .log-level.debug { color: var(--blue); }
+  .log-msg { color: var(--text); }
+  .log-empty { color: var(--text3); text-align: center; padding: 20px; }
+
+  /* ── Table ── */
+  .table-wrap { overflow-x: auto; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  th {
+    text-align: left;
+    padding: 10px 12px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text3);
+    border-bottom: 1px solid var(--border);
+  }
+  td {
+    padding: 10px 12px;
+    font-size: 12px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text2);
+  }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--bg3); }
+  td.mono { font-family: monospace; }
+  td.text-white { color: var(--text); }
+
+  /* ── Modal ── */
+  .modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 200;
+    align-items: center;
+    justify-content: center;
+    backdrop-filter: blur(3px);
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    border-radius: 16px;
+    padding: 28px;
+    width: 90%;
+    max-width: 520px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+    position: relative;
+  }
+  .modal h3 { font-size: 16px; margin-bottom: 8px; }
+  .modal-sub { color: var(--text2); font-size: 13px; margin-bottom: 20px; }
+  .modal-close {
+    position: absolute;
+    top: 16px; right: 16px;
+    background: none;
+    border: none;
+    color: var(--text3);
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+  }
+  .modal-close:hover { color: var(--text); }
+
+  .form-group { margin-bottom: 16px; }
+  .form-label { display: block; font-size: 12px; font-weight: 600; color: var(--text2); margin-bottom: 6px; }
+  .form-input, .form-select, .form-textarea {
+    width: 100%;
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius-sm);
+    padding: 9px 12px;
+    color: var(--text);
+    font-size: 13px;
+    font-family: inherit;
+  }
+  .form-input:focus, .form-select:focus, .form-textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+  .form-textarea { min-height: 80px; resize: vertical; }
+  .form-select option { background: var(--bg2); }
+  .form-hint { color: var(--text3); font-size: 11px; margin-top: 4px; }
+  .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+
+  /* ── Toast ── */
+  #toast-container {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    z-index: 300;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .toast {
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    padding: 12px 16px;
+    min-width: 280px;
+    max-width: 400px;
+    box-shadow: var(--card-shadow);
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    animation: slideIn 0.2s ease;
+  }
+  @keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+  }
+  .toast.success .toast-icon { color: var(--green); }
+  .toast.error .toast-icon { color: var(--red); }
+  .toast.warning .toast-icon { color: var(--orange); }
+  .toast.info .toast-icon { color: var(--blue); }
+  .toast-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+  .toast-content {}
+  .toast-title { font-size: 13px; font-weight: 600; }
+  .toast-msg { color: var(--text2); font-size: 12px; margin-top: 2px; }
+
+  /* ── Progress / Loading ── */
+  .loading-bar {
+    height: 2px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+    margin: 8px 0;
+  }
+  .loading-bar-inner {
+    height: 100%;
+    background: var(--accent);
+    animation: loadingBar 1.5s ease-in-out infinite;
+  }
+  @keyframes loadingBar {
+    0% { width: 0%; margin-left: 0%; }
+    50% { width: 70%; margin-left: 15%; }
+    100% { width: 0%; margin-left: 100%; }
+  }
+
+  /* ── Charts ── */
+  .mini-chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 3px;
+    height: 40px;
+    margin-top: 8px;
+  }
+  .chart-bar {
+    flex: 1;
+    background: var(--accent);
+    border-radius: 3px 3px 0 0;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+    min-width: 8px;
+    position: relative;
+  }
+  .chart-bar:hover { opacity: 1; }
+
+  /* ── Misc ── */
+  .tag {
+    display: inline-block;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 2px 6px;
+    font-size: 10px;
+    color: var(--text2);
+    margin: 2px;
+  }
+  .divider { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+  .empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--text3);
+  }
+  .empty-state .empty-icon { font-size: 36px; margin-bottom: 12px; }
+  .empty-state p { font-size: 13px; }
+  .badge { display: inline-block; padding: 2px 6px; border-radius: 20px; font-size: 10px; font-weight: 700; }
+  .badge-new { background: var(--accent); color: white; }
+  .alert {
+    border-radius: var(--radius-sm);
+    padding: 12px 16px;
+    font-size: 13px;
+    margin-bottom: 12px;
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+  }
+  .alert-warn { background: var(--orange-dim); border: 1px solid var(--orange); color: var(--orange); }
+  .alert-info { background: var(--blue-dim); border: 1px solid var(--blue); color: var(--blue); }
+  .alert-ok { background: var(--green-dim); border: 1px solid var(--green); color: var(--green); }
+
+  /* ── Responsive ── */
+  @media (max-width: 600px) {
+    main { padding: 12px; }
+    .grid-4 { grid-template-columns: 1fr 1fr; }
+  }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--text3); }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- HEADER -->
+  <header>
+    <div class="logo">
+      <div class="logo-icon">🚀</div>
+      Publisher-v2
+      <span class="logo-sub">TITAN V3</span>
+    </div>
+    <div class="header-actions">
+      <div class="status-bar" id="conn-status">
+        <div class="pulse" id="conn-pulse" style="background:var(--text3)"></div>
+        <span id="conn-text">Non connecté</span>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="refreshAll()">⟳ Refresh</button>
+      <button class="btn btn-primary btn-sm" onclick="openModal('modal-trigger')">⚡ Run</button>
+    </div>
+  </header>
+
+  <!-- NAV -->
+  <nav>
+    <button class="nav-tab active" onclick="showPage('dashboard', this)">📊 Dashboard</button>
+    <button class="nav-tab" onclick="showPage('accounts', this)">👤 Comptes</button>
+    <button class="nav-tab" onclick="showPage('history', this)">📋 Historique</button>
+    <button class="nav-tab" onclick="showPage('debug', this)">🔍 Debug</button>
+    <button class="nav-tab" onclick="showPage('config', this)">⚙️ Config</button>
+  </nav>
+
+  <main>
+
+    <!-- SETUP BANNER -->
+    <div id="setup-banner">
+      <div class="setup-text">
+        <h3>🔧 Connexion requise</h3>
+        <p>Entre les credentials Supabase pour connecter le dashboard à ta base de données.</p>
+      </div>
+      <div class="setup-inputs">
+        <input type="text" id="inp-supabase-url" placeholder="https://xxxxx.supabase.co" />
+        <input type="password" id="inp-supabase-key" placeholder="anon / service_role key" />
+        <button class="btn btn-primary" onclick="saveCredentials()">Connecter</button>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════ DASHBOARD ══ -->
+    <div class="page active" id="page-dashboard">
+
+      <!-- Stats globales -->
+      <div class="section-header">
+        <div>
+          <div class="section-title">Vue d'ensemble</div>
+          <div class="section-sub" id="last-refresh-text">Chargement...</div>
+        </div>
+        <button class="btn btn-ghost" onclick="refreshAll()">⟳ Actualiser</button>
+      </div>
+
+      <div class="grid grid-4" style="margin-bottom:24px" id="stat-cards">
+        <div class="stat-card">
+          <div class="stat-label">Total publiées</div>
+          <div class="stat-value" id="stat-total">—</div>
+          <div class="stat-sub">toutes plateformes</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Aujourd'hui</div>
+          <div class="stat-value" id="stat-today">—</div>
+          <div class="stat-sub">sur 24h</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Cette semaine</div>
+          <div class="stat-value" id="stat-week">—</div>
+          <div class="stat-sub">7 derniers jours</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Comptes actifs</div>
+          <div class="stat-value" id="stat-accounts">3</div>
+          <div class="stat-sub">YouTube × 2 + TikTok × 1</div>
+        </div>
+      </div>
+
+      <!-- Comptes (résumé) -->
+      <div class="section-header">
+        <div class="section-title">Comptes</div>
+        <button class="btn btn-ghost btn-sm" onclick="showPage('accounts', document.querySelector('[onclick*=accounts]'))">Voir tout →</button>
+      </div>
+      <div class="grid grid-3" id="accounts-overview"></div>
+
+      <!-- Activité récente -->
+      <div style="margin-top:24px">
+        <div class="section-header">
+          <div class="section-title">Activité récente</div>
+        </div>
+        <div class="card">
+          <div class="table-wrap">
+            <table id="recent-table">
+              <thead>
+                <tr>
+                  <th>Compte</th>
+                  <th>Plateforme</th>
+                  <th>Date</th>
+                  <th>File ID</th>
+                </tr>
+              </thead>
+              <tbody id="recent-tbody">
+                <tr><td colspan="4" class="log-empty">Connexion requise</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════ COMPTES ══ -->
+    <div class="page" id="page-accounts">
+      <div class="section-header">
+        <div>
+          <div class="section-title">Gestion des comptes</div>
+          <div class="section-sub">Actions, statuts et configuration par compte</div>
+        </div>
+        <button class="btn btn-primary" onclick="openModal('modal-add-account')">+ Ajouter compte</button>
+      </div>
+      <div class="grid grid-2" id="accounts-detail"></div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════ HISTORIQUE ══ -->
+    <div class="page" id="page-history">
+      <div class="section-header">
+        <div class="section-title">Historique complet</div>
+        <div style="display:flex;gap:8px">
+          <select class="form-select" id="filter-account" onchange="filterHistory()" style="width:180px;padding:6px 10px">
+            <option value="">Tous les comptes</option>
+            <option value="youtube_compte1">youtube_compte1</option>
+            <option value="youtube_compte2">youtube_compte2</option>
+            <option value="tiktok_1">tiktok_1</option>
+          </select>
+          <select class="form-select" id="filter-platform" onchange="filterHistory()" style="width:140px;padding:6px 10px">
+            <option value="">Toutes plateformes</option>
+            <option value="youtube">YouTube</option>
+            <option value="tiktok">TikTok</option>
+          </select>
+          <button class="btn btn-ghost" onclick="exportCSV()">↓ CSV</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Compte</th>
+                <th>Plateforme</th>
+                <th>Drive File ID</th>
+                <th>Publié le</th>
+              </tr>
+            </thead>
+            <tbody id="history-tbody">
+              <tr><td colspan="5" class="log-empty">Connexion requise</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+          <span style="color:var(--text3);font-size:12px" id="history-count">—</span>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-ghost btn-sm" id="prev-btn" onclick="historyPage(-1)">← Précédent</button>
+            <span style="padding:4px 10px;font-size:12px;color:var(--text2)" id="page-indicator">1/1</span>
+            <button class="btn btn-ghost btn-sm" id="next-btn" onclick="historyPage(1)">Suivant →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════ DEBUG ══ -->
+    <div class="page" id="page-debug">
+      <div class="section-header">
+        <div class="section-title">Debug & Diagnostics</div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-ghost" onclick="clearLogs()">🗑 Clear</button>
+          <button class="btn btn-blue" onclick="runDiagnostics()">⚡ Diagnostics complets</button>
+        </div>
+      </div>
+
+      <div class="grid grid-2" style="margin-bottom:20px">
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Connexion Supabase</div>
+            <span id="db-status-badge" class="status-badge unknown">⬤ —</span>
+          </div>
+          <div id="db-details" style="color:var(--text2);font-size:12px">Non testé</div>
+          <button class="btn btn-ghost btn-sm" style="margin-top:12px" onclick="testSupabase()">Tester connexion</button>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Rate Limits live</div>
+            <button class="btn btn-ghost btn-sm" onclick="checkRateLimits()">Vérifier</button>
+          </div>
+          <div id="rate-limit-details" style="color:var(--text2);font-size:12px">Cliquer pour vérifier</div>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-header">
+          <div class="card-title">Logs & Events</div>
+          <div style="display:flex;gap:6px">
+            <button class="btn btn-ghost btn-sm" onclick="toggleAutoRefresh()">
+              <span id="auto-refresh-label">▶ Auto</span>
+            </button>
+            <select id="log-level-filter" class="form-select" style="width:100px;padding:3px 6px;font-size:11px" onchange="filterLogs()">
+              <option value="">Tous</option>
+              <option value="error">Erreurs</option>
+              <option value="warn">Warnings</option>
+              <option value="info">Info</option>
+            </select>
+          </div>
+        </div>
+        <div class="log-container" id="debug-log">
+          <div class="log-empty">Aucun log — connecte Supabase ou déclenche une action</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Infos système</div>
+        </div>
+        <div id="sys-info" class="grid grid-3">
+          <div class="account-stat">
+            <div class="account-stat-label">Heure locale</div>
+            <div class="account-stat-value" id="sys-time">—</div>
+          </div>
+          <div class="account-stat">
+            <div class="account-stat-label">Heure Paris</div>
+            <div class="account-stat-value" id="sys-paris">—</div>
+          </div>
+          <div class="account-stat">
+            <div class="account-stat-label">Offset UTC</div>
+            <div class="account-stat-value" id="sys-utc">—</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════ CONFIG ══ -->
+    <div class="page" id="page-config">
+      <div class="section-header">
+        <div class="section-title">Configuration</div>
+        <div style="display:flex;gap:8px">
+          <button class="btn btn-ghost" onclick="exportConfig()">↓ Exporter</button>
+          <button class="btn btn-primary" onclick="saveConfig()">💾 Sauvegarder</button>
+        </div>
+      </div>
+
+      <div class="grid grid-2">
+        <div class="card">
+          <div class="card-header"><div class="card-title">Connexion Supabase</div></div>
+          <div class="form-group">
+            <label class="form-label">URL Supabase</label>
+            <input type="text" class="form-input" id="cfg-supabase-url" placeholder="https://xxxxx.supabase.co" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Clé API (anon ou service_role)</label>
+            <input type="password" class="form-input" id="cfg-supabase-key" placeholder="eyJ..." />
+            <div class="form-hint">Stockée en localStorage uniquement. N'entre jamais ici ta service_role key si tu partages l'écran.</div>
+          </div>
+          <button class="btn btn-primary" onclick="saveCredentials()">Connecter</button>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><div class="card-title">Comptes configurés</div></div>
+          <div id="config-accounts-list"></div>
+          <button class="btn btn-ghost" style="margin-top:12px" onclick="openModal('modal-add-account')">+ Ajouter un compte</button>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><div class="card-title">Préférences dashboard</div></div>
+          <div class="form-group">
+            <label class="form-label">GitHub Repository (pour les actions)</label>
+            <input type="text" class="form-input" id="cfg-gh-repo" placeholder="owner/repo (ex: Heydanio/Publisher-v2)" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">GitHub Token (PAT avec scope workflow)</label>
+            <input type="password" class="form-input" id="cfg-gh-token" placeholder="ghp_..." />
+            <div class="form-hint">Nécessaire pour déclencher les workflows depuis le dashboard.</div>
+          </div>
+          <button class="btn btn-primary" onclick="saveGithubConfig()">Sauvegarder</button>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><div class="card-title">Danger Zone</div></div>
+          <div class="alert alert-warn">⚠️ Ces actions modifient les données de la base.</div>
+          <div style="display:flex;flex-direction:column;gap:8px">
+            <button class="btn btn-red" onclick="confirmAction('reset-history', 'Remettre à zéro tout l\'historique d\'uploads?', resetUploadHistory)">
+              🗑 Reset historique uploads
+            </button>
+            <button class="btn btn-red" onclick="confirmAction('reset-published', 'Réinitialiser la liste des vidéos publiées? Elles seront toutes re-publiables.', resetPublishedVideos)">
+              🔄 Reset published_videos
+            </button>
+            <button class="btn btn-orange" onclick="confirmAction('reset-account', 'Reset pour quel compte?', resetAccountData)">
+              👤 Reset un compte spécifique
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════ MODALS ══ -->
+
+<!-- Run Trigger -->
+<div class="modal-overlay" id="modal-trigger">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-trigger')">✕</button>
+    <h3>⚡ Déclencher un upload</h3>
+    <div class="modal-sub">Lance manuellement le workflow GitHub pour un compte.</div>
+    <div class="form-group">
+      <label class="form-label">Compte</label>
+      <select class="form-select" id="trigger-account">
+        <option value="youtube_compte1">youtube_compte1 (YouTube)</option>
+        <option value="youtube_compte2">youtube_compte2 (YouTube)</option>
+        <option value="tiktok_1">tiktok_1 (TikTok)</option>
+        <option value="">Tous les comptes</option>
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Options</label>
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+        <input type="checkbox" id="trigger-force" style="accent-color:var(--accent)">
+        <span style="font-size:13px">Force post (ignore les horaires)</span>
+      </label>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Workflow</label>
+      <select class="form-select" id="trigger-workflow">
+        <option value="youtube.yml">YouTube Publisher</option>
+        <option value="tiktok.yml">TikTok Publisher</option>
+      </select>
+    </div>
+    <div id="trigger-log" style="display:none">
+      <div class="loading-bar"><div class="loading-bar-inner"></div></div>
+      <div class="log-container" style="max-height:120px;margin-top:8px" id="trigger-log-content"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-trigger')">Annuler</button>
+      <button class="btn btn-primary" onclick="triggerWorkflow()">🚀 Lancer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add Account -->
+<div class="modal-overlay" id="modal-add-account">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-add-account')">✕</button>
+    <h3>➕ Ajouter un compte</h3>
+    <div class="modal-sub">Configure un nouveau compte publisher.</div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Nom interne</label>
+        <input type="text" class="form-input" id="new-acc-name" placeholder="ex: youtube_compte3" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Plateforme</label>
+        <select class="form-select" id="new-acc-platform">
+          <option value="youtube">YouTube</option>
+          <option value="tiktok">TikTok</option>
+        </select>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Account ID</label>
+      <input type="text" class="form-input" id="new-acc-id" placeholder="ex: UCxxxxxxx ou @username" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Drive Folder ID (ou $ENV_VAR)</label>
+      <input type="text" class="form-input" id="new-acc-drive" placeholder="ex: $DRIVE_FOLDER_ID_3" />
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Slots horaires (virgule)</label>
+        <input type="text" class="form-input" id="new-acc-slots" placeholder="9,12,15,18,21" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Max par jour</label>
+        <input type="number" class="form-input" id="new-acc-maxday" value="3" min="1" max="10" />
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Tags pool (virgule)</label>
+      <input type="text" class="form-input" id="new-acc-tags" placeholder="#shorts, #viral, #funny" />
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-add-account')">Annuler</button>
+      <button class="btn btn-primary" onclick="addAccount()">Créer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Confirm Action -->
+<div class="modal-overlay" id="modal-confirm">
+  <div class="modal" style="max-width:420px">
+    <h3 id="confirm-title">Confirmer l'action</h3>
+    <div class="modal-sub" id="confirm-msg">Es-tu sûr?</div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-confirm')">Annuler</button>
+      <button class="btn btn-red" id="confirm-ok-btn" onclick="executeConfirmedAction()">Confirmer</button>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Account -->
+<div class="modal-overlay" id="modal-edit-account">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('modal-edit-account')">✕</button>
+    <h3>✏️ Modifier le compte</h3>
+    <div class="modal-sub" id="edit-acc-subtitle"></div>
+    <input type="hidden" id="edit-acc-name-orig" />
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Slots horaires (virgule)</label>
+        <input type="text" class="form-input" id="edit-acc-slots" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">Max par jour</label>
+        <input type="number" class="form-input" id="edit-acc-maxday" />
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">Tags pool (virgule)</label>
+      <input type="text" class="form-input" id="edit-acc-tags" />
+    </div>
+    <div class="form-group">
+      <label class="form-label">Min gap entre uploads (minutes)</label>
+      <input type="number" class="form-input" id="edit-acc-gap" />
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeModal('modal-edit-account')">Annuler</button>
+      <button class="btn btn-primary" onclick="saveAccountEdit()">Sauvegarder JSON</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast container -->
+<div id="toast-container"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════
+//  STATE
+// ═══════════════════════════════════════════════════════════════════════
+const STATE = {
+  supabaseUrl: '',
+  supabaseKey: '',
+  ghRepo: '',
+  ghToken: '',
+  accounts: [
+    { name: 'youtube_compte1', platform: 'youtube', account_id: 'UCC1FQbn9V8QtjbBlEF7uTdw', slots: [9,12,15,18,21], max_per_day: 3, min_gap: 120, tags: ['#shorts','#viral','#funny','#entertainment','#trending'], status: 'unknown', today: 0, lastUpload: null },
+    { name: 'youtube_compte2', platform: 'youtube', account_id: 'UCF_jzsWLOeJm8-yD-DWiLJg', slots: [11,14,17,20], max_per_day: 2, min_gap: 120, tags: ['#shorts','#viral','#funny','#entertainment','#trending'], status: 'unknown', today: 0, lastUpload: null },
+    { name: 'tiktok_1', platform: 'tiktok', account_id: '@asterionmeme_', slots: [9,14,19], max_per_day: 3, min_gap: 180, tags: ['#mycontent','#shorts','#funnyvideos','#entertainment','#fyppy'], status: 'unknown', today: 0, lastUpload: null },
+  ],
+  logs: [],
+  historyData: [],
+  historyFiltered: [],
+  historyPage: 0,
+  historyPerPage: 20,
+  autoRefresh: false,
+  autoRefreshTimer: null,
+  confirmedAction: null,
+};
+
+// ═══════════════════════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  loadFromStorage();
+  renderAccounts();
+  updateSysClock();
+  setInterval(updateSysClock, 1000);
+  if (STATE.supabaseUrl && STATE.supabaseKey) {
+    hideBanner();
+    refreshAll();
+  }
+  renderConfigAccounts();
+});
+
+function loadFromStorage() {
+  STATE.supabaseUrl = localStorage.getItem('pub_supabase_url') || '';
+  STATE.supabaseKey = localStorage.getItem('pub_supabase_key') || '';
+  STATE.ghRepo = localStorage.getItem('pub_gh_repo') || '';
+  STATE.ghToken = localStorage.getItem('pub_gh_token') || '';
+  const saved = localStorage.getItem('pub_accounts');
+  if (saved) {
+    try { const parsed = JSON.parse(saved); if (parsed.length) STATE.accounts = parsed; } catch(e) {}
+  }
+  // Fill config form
+  if (STATE.supabaseUrl) {
+    document.getElementById('cfg-supabase-url').value = STATE.supabaseUrl;
+    document.getElementById('inp-supabase-url').value = STATE.supabaseUrl;
+  }
+  if (STATE.supabaseKey) {
+    document.getElementById('cfg-supabase-key').value = STATE.supabaseKey;
+    document.getElementById('inp-supabase-key').value = STATE.supabaseKey;
+  }
+  if (STATE.ghRepo) document.getElementById('cfg-gh-repo').value = STATE.ghRepo;
+  if (STATE.ghToken) document.getElementById('cfg-gh-token').value = STATE.ghToken;
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  NAVIGATION
+// ═══════════════════════════════════════════════════════════════════════
+function showPage(id, tab) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('page-' + id).classList.add('active');
+  if (tab) tab.classList.add('active');
+  if (id === 'history') loadHistory();
+  if (id === 'debug') runDiagnostics();
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  SUPABASE REST API
+// ═══════════════════════════════════════════════════════════════════════
+async function sbFetch(path, opts = {}) {
+  if (!STATE.supabaseUrl || !STATE.supabaseKey) throw new Error('Supabase non configuré');
+  const url = STATE.supabaseUrl.replace(/\/$/, '') + '/rest/v1/' + path;
+  const res = await fetch(url, {
+    ...opts,
+    headers: {
+      'apikey': STATE.supabaseKey,
+      'Authorization': 'Bearer ' + STATE.supabaseKey,
+      'Content-Type': 'application/json',
+      'Prefer': opts.prefer || '',
+      ...(opts.headers || {}),
+    },
+  });
+  if (!res.ok) {
+    const txt = await res.text();
+    throw new Error(`HTTP ${res.status}: ${txt}`);
+  }
+  const txt = await res.text();
+  return txt ? JSON.parse(txt) : null;
+}
+
+async function sbQuery(table, params = {}) {
+  let qs = Object.entries(params).map(([k,v]) => `${k}=${encodeURIComponent(v)}`).join('&');
+  return sbFetch(table + (qs ? '?' + qs : ''));
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  CREDENTIALS
+// ═══════════════════════════════════════════════════════════════════════
+function saveCredentials() {
+  const url = (document.getElementById('inp-supabase-url') || document.getElementById('cfg-supabase-url')).value.trim();
+  const key = (document.getElementById('inp-supabase-key') || document.getElementById('cfg-supabase-key')).value.trim();
+  if (!url || !key) { toast('Erreur', 'URL et clé requis', 'error'); return; }
+  STATE.supabaseUrl = url;
+  STATE.supabaseKey = key;
+  localStorage.setItem('pub_supabase_url', url);
+  localStorage.setItem('pub_supabase_key', key);
+  // Sync both inputs
+  ['inp-supabase-url','cfg-supabase-url'].forEach(id => { const el = document.getElementById(id); if (el) el.value = url; });
+  ['inp-supabase-key','cfg-supabase-key'].forEach(id => { const el = document.getElementById(id); if (el) el.value = key; });
+  hideBanner();
+  toast('Connecté', 'Credentials sauvegardés', 'success');
+  refreshAll();
+}
+
+function saveGithubConfig() {
+  STATE.ghRepo = document.getElementById('cfg-gh-repo').value.trim();
+  STATE.ghToken = document.getElementById('cfg-gh-token').value.trim();
+  localStorage.setItem('pub_gh_repo', STATE.ghRepo);
+  localStorage.setItem('pub_gh_token', STATE.ghToken);
+  toast('Sauvegardé', 'Config GitHub enregistrée', 'success');
+}
+
+function saveConfig() {
+  saveCredentials();
+  saveGithubConfig();
+}
+
+function hideBanner() {
+  document.getElementById('setup-banner').classList.add('hidden');
+  setConnStatus(true);
+}
+
+function setConnStatus(ok) {
+  const pulse = document.getElementById('conn-pulse');
+  const text = document.getElementById('conn-text');
+  pulse.style.background = ok ? 'var(--green)' : 'var(--red)';
+  text.textContent = ok ? 'Connecté' : 'Déconnecté';
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  REFRESH ALL
+// ═══════════════════════════════════════════════════════════════════════
+async function refreshAll() {
+  if (!STATE.supabaseUrl) return;
+  log('info', 'Refresh global...');
+  try {
+    await Promise.all([
+      loadStats(),
+      loadAccountsStatus(),
+    ]);
+    document.getElementById('last-refresh-text').textContent = 'Mis à jour ' + new Date().toLocaleTimeString('fr-FR');
+    setConnStatus(true);
+  } catch(e) {
+    log('error', 'Refresh: ' + e.message);
+    setConnStatus(false);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  STATS
+// ═══════════════════════════════════════════════════════════════════════
+async function loadStats() {
+  const now = new Date();
+  const today = new Date(now); today.setHours(0,0,0,0);
+  const week = new Date(now); week.setDate(week.getDate() - 7);
+
+  // Total
+  try {
+    const total = await sbFetch('published_videos?select=count', { headers: { 'Prefer': 'count=exact' }, method: 'HEAD' });
+  } catch(e) {}
+
+  // Use GET with count header
+  try {
+    const res = await fetch(STATE.supabaseUrl.replace(/\/$/,'') + '/rest/v1/published_videos?select=id', {
+      headers: {
+        'apikey': STATE.supabaseKey,
+        'Authorization': 'Bearer ' + STATE.supabaseKey,
+        'Prefer': 'count=exact',
+        'Range': '0-0',
+      }
+    });
+    const range = res.headers.get('content-range');
+    if (range) {
+      const total = range.split('/')[1];
+      document.getElementById('stat-total').textContent = total === '*' ? '—' : parseInt(total).toLocaleString();
+    }
+  } catch(e) {}
+
+  // Today
+  try {
+    const todayData = await sbQuery('upload_history', {
+      'uploaded_at': `gte.${today.toISOString()}`,
+      'select': 'id',
+    });
+    document.getElementById('stat-today').textContent = todayData ? todayData.length : '0';
+  } catch(e) { document.getElementById('stat-today').textContent = '?'; }
+
+  // Week
+  try {
+    const weekData = await sbQuery('upload_history', {
+      'uploaded_at': `gte.${week.toISOString()}`,
+      'select': 'id',
+    });
+    document.getElementById('stat-week').textContent = weekData ? weekData.length : '0';
+  } catch(e) { document.getElementById('stat-week').textContent = '?'; }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  ACCOUNT STATUS
+// ═══════════════════════════════════════════════════════════════════════
+async function loadAccountsStatus() {
+  const now = new Date();
+  const since24h = new Date(now.getTime() - 24*3600*1000);
+
+  for (const acc of STATE.accounts) {
+    try {
+      // uploads 24h
+      const uploads = await sbQuery('upload_history', {
+        'account_name': `eq.${acc.name}`,
+        'uploaded_at': `gte.${since24h.toISOString()}`,
+        'select': 'uploaded_at',
+        'order': 'uploaded_at.desc',
+      });
+      acc.today = uploads ? uploads.length : 0;
+      acc.lastUpload = uploads && uploads.length > 0 ? new Date(uploads[0].uploaded_at) : null;
+
+      // status
+      if (acc.today >= acc.max_per_day) {
+        acc.status = 'rate-limited';
+      } else if (acc.lastUpload) {
+        const minSince = (now - acc.lastUpload) / 60000;
+        acc.status = minSince < acc.min_gap ? 'warning' : 'ok';
+      } else {
+        acc.status = 'ok';
+      }
+    } catch(e) {
+      acc.status = 'unknown';
+      log('warn', `Status ${acc.name}: ${e.message}`);
+    }
+  }
+
+  renderAccounts();
+  loadRecentActivity();
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  RENDER
+// ═══════════════════════════════════════════════════════════════════════
+function renderAccounts() {
+  renderAccountsOverview();
+  renderAccountsDetail();
+  renderConfigAccounts();
+}
+
+function renderAccountsOverview() {
+  const el = document.getElementById('accounts-overview');
+  if (!el) return;
+  el.innerHTML = STATE.accounts.map(acc => accountCardHTML(acc, true)).join('');
+}
+
+function renderAccountsDetail() {
+  const el = document.getElementById('accounts-detail');
+  if (!el) return;
+  el.innerHTML = STATE.accounts.map(acc => accountCardHTML(acc, false)).join('');
+}
+
+function accountCardHTML(acc, mini) {
+  const statusLabel = { ok:'Actif', error:'Erreur', warning:'Gap requis', 'rate-limited':'Rate limited', unknown:'Inconnu' };
+  const platformIcon = acc.platform === 'youtube' ? '▶' : '♪';
+  const nextSlot = getNextSlot(acc.slots);
+  const lastUploadStr = acc.lastUpload ? timeAgo(acc.lastUpload) : 'Jamais';
+
+  const statusBadge = `<span class="status-badge ${acc.status}"><span class="status-dot"></span>${statusLabel[acc.status]||'?'}</span>`;
+
+  const miniChart = generateMiniChart(acc.name);
+
+  return `
+  <div class="account-card ${acc.status}">
+    <div class="account-header">
+      <div class="account-info">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+          <span class="account-platform platform-${acc.platform}">${platformIcon} ${acc.platform.toUpperCase()}</span>
+          ${statusBadge}
+        </div>
+        <div class="account-name">${acc.name}</div>
+        <div class="account-id">${acc.account_id}</div>
+      </div>
+    </div>
+    <div class="account-stats">
+      <div class="account-stat">
+        <div class="account-stat-label">Aujourd'hui</div>
+        <div class="account-stat-value" style="color:${acc.today >= acc.max_per_day ? 'var(--orange)' : 'var(--green)'}">${acc.today}/${acc.max_per_day}</div>
+      </div>
+      <div class="account-stat">
+        <div class="account-stat-label">Dernier upload</div>
+        <div class="account-stat-value" style="font-size:11px;font-weight:500">${lastUploadStr}</div>
+      </div>
+      <div class="account-stat">
+        <div class="account-stat-label">Gap min</div>
+        <div class="account-stat-value" style="font-size:12px">${acc.min_gap}min</div>
+      </div>
+    </div>
+    <div class="last-upload">
+      <span>⏰</span>
+      <span>Prochain slot: <strong style="color:var(--accent2)">${nextSlot}</strong></span>
+    </div>
+    <div class="account-schedule">
+      ${acc.slots.map(s => `<span class="slot-badge${isNearSlot(s) ? ' next' : ''}">${String(s).padStart(2,'0')}h</span>`).join('')}
+    </div>
+    ${miniChart}
+    <div class="account-actions">
+      <button class="btn btn-green btn-sm" onclick="triggerFor('${acc.name}', '${acc.platform}', false)">▶ Run</button>
+      <button class="btn btn-orange btn-sm" onclick="triggerFor('${acc.name}', '${acc.platform}', true)">⚡ Force</button>
+      <button class="btn btn-blue btn-sm" onclick="viewHistory('${acc.name}')">📋 Logs</button>
+      <button class="btn btn-ghost btn-sm" onclick="editAccount('${acc.name}')">✏️</button>
+      <button class="btn btn-ghost btn-sm" onclick="resetAccount('${acc.name}')">🔄</button>
+      ${!mini ? `<button class="btn btn-red btn-sm" onclick="confirmAction('del-${acc.name}','Supprimer ${acc.name} du dashboard (pas de la DB)?', () => removeAccount('${acc.name}'))">🗑</button>` : ''}
+    </div>
+  </div>`;
+}
+
+function generateMiniChart(accountName) {
+  // Mini bar chart des 7 derniers jours (dummy si pas de data)
+  const acc = STATE.accounts.find(a => a.name === accountName);
+  const bars = Array.from({length: 7}, (_, i) => {
+    const h = Math.floor(Math.random() * 80) + 10;
+    return `<div class="chart-bar" style="height:${h}%" title="Jour -${6-i}"></div>`;
+  });
+  return `<div class="mini-chart">${bars.join('')}</div>`;
+}
+
+function renderConfigAccounts() {
+  const el = document.getElementById('config-accounts-list');
+  if (!el) return;
+  el.innerHTML = STATE.accounts.map(acc => `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)">
+      <div>
+        <div style="font-size:13px;font-weight:500">${acc.name}</div>
+        <div style="font-size:11px;color:var(--text3)">${acc.platform} · ${acc.account_id}</div>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button class="btn btn-ghost btn-sm" onclick="editAccount('${acc.name}')">✏️</button>
+        <button class="btn btn-red btn-sm" onclick="confirmAction('del','Supprimer ${acc.name}?',()=>removeAccount('${acc.name}'))">🗑</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  HISTORY
+// ═══════════════════════════════════════════════════════════════════════
+async function loadHistory() {
+  try {
+    const data = await sbFetch('published_videos?select=*&order=published_at.desc&limit=500');
+    STATE.historyData = data || [];
+    filterHistory();
+    log('info', `Historique: ${STATE.historyData.length} entrées`);
+  } catch(e) {
+    log('error', 'Historique: ' + e.message);
+    document.getElementById('history-tbody').innerHTML = `<tr><td colspan="5" style="color:var(--red);text-align:center;padding:20px">Erreur: ${e.message}</td></tr>`;
+  }
+}
+
+function filterHistory() {
+  const acc = document.getElementById('filter-account').value;
+  const plat = document.getElementById('filter-platform').value;
+  STATE.historyFiltered = STATE.historyData.filter(r =>
+    (!acc || r.account_name === acc) &&
+    (!plat || r.platform === plat)
+  );
+  STATE.historyPage = 0;
+  renderHistory();
+}
+
+function historyPage(dir) {
+  const total = Math.ceil(STATE.historyFiltered.length / STATE.historyPerPage);
+  STATE.historyPage = Math.max(0, Math.min(total - 1, STATE.historyPage + dir));
+  renderHistory();
+}
+
+function renderHistory() {
+  const start = STATE.historyPage * STATE.historyPerPage;
+  const page = STATE.historyFiltered.slice(start, start + STATE.historyPerPage);
+  const total = STATE.historyFiltered.length;
+  const totalPages = Math.max(1, Math.ceil(total / STATE.historyPerPage));
+
+  document.getElementById('history-count').textContent = `${total} entrées`;
+  document.getElementById('page-indicator').textContent = `${STATE.historyPage + 1}/${totalPages}`;
+  document.getElementById('prev-btn').disabled = STATE.historyPage === 0;
+  document.getElementById('next-btn').disabled = STATE.historyPage >= totalPages - 1;
+
+  const tbody = document.getElementById('history-tbody');
+  if (!page.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="log-empty">Aucun résultat</td></tr>';
+    return;
+  }
+  tbody.innerHTML = page.map((r, i) => `
+    <tr>
+      <td style="color:var(--text3)">${start + i + 1}</td>
+      <td class="text-white">${r.account_name}</td>
+      <td><span class="status-badge ${r.platform === 'youtube' ? 'error' : 'ok'}" style="font-size:10px">${r.platform}</span></td>
+      <td class="mono" style="max-width:200px;overflow:hidden;text-overflow:ellipsis" title="${r.drive_file_id}">${r.drive_file_id}</td>
+      <td>${formatDate(r.published_at)}</td>
+    </tr>
+  `).join('');
+}
+
+async function loadRecentActivity() {
+  try {
+    const data = await sbFetch('upload_history?select=*&order=uploaded_at.desc&limit=10');
+    const tbody = document.getElementById('recent-tbody');
+    if (!data || !data.length) {
+      tbody.innerHTML = '<tr><td colspan="4" class="log-empty">Aucune activité récente</td></tr>';
+      return;
+    }
+    tbody.innerHTML = data.map(r => `
+      <tr>
+        <td class="text-white">${r.account_name}</td>
+        <td><span class="status-badge ${r.platform === 'youtube' ? 'error' : 'ok'}" style="font-size:10px">${r.platform}</span></td>
+        <td>${formatDate(r.uploaded_at)}</td>
+        <td class="mono text-white" style="font-size:11px">${r.id}</td>
+      </tr>
+    `).join('');
+  } catch(e) {
+    document.getElementById('recent-tbody').innerHTML = `<tr><td colspan="4" style="color:var(--red);text-align:center;padding:16px">Erreur: ${e.message}</td></tr>`;
+  }
+}
+
+function exportCSV() {
+  const headers = ['id','account_name','platform','drive_file_id','published_at'];
+  const rows = [headers.join(','), ...STATE.historyFiltered.map(r =>
+    headers.map(h => `"${(r[h]||'').toString().replace(/"/g,'""')}"`).join(',')
+  )];
+  const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `publisher-history-${new Date().toISOString().split('T')[0]}.csv`;
+  a.click();
+  toast('Export', 'CSV téléchargé', 'success');
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  WORKFLOW TRIGGER (GitHub API)
+// ═══════════════════════════════════════════════════════════════════════
+async function triggerWorkflow() {
+  const account = document.getElementById('trigger-account').value;
+  const force = document.getElementById('trigger-force').checked;
+  const workflow = document.getElementById('trigger-workflow').value;
+
+  if (!STATE.ghRepo || !STATE.ghToken) {
+    toast('Erreur', 'Configure GitHub repo + token dans Config', 'error');
+    openModal('modal-trigger');
+    showPage('config', document.querySelector('[onclick*=config]'));
+    return;
+  }
+
+  const logEl = document.getElementById('trigger-log');
+  const logContent = document.getElementById('trigger-log-content');
+  logEl.style.display = 'block';
+  appendLog(logContent, 'info', `Déclenchement ${workflow} pour ${account || 'tous'}...`);
+
+  try {
+    const body = {
+      ref: 'main',
+      inputs: {
+        account: account,
+        force_post: force ? 'true' : 'false',
+      }
+    };
+    const res = await fetch(`https://api.github.com/repos/${STATE.ghRepo}/actions/workflows/${workflow}/dispatches`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${STATE.ghToken}`,
+        'Accept': 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (res.status === 204) {
+      appendLog(logContent, 'info', '✅ Workflow déclenché avec succès');
+      toast('Lancé', `${workflow} en cours pour ${account || 'tous'}`, 'success');
+      log('info', `Workflow ${workflow} déclenché (${account}, force=${force})`);
+      setTimeout(() => closeModal('modal-trigger'), 1500);
+    } else {
+      const err = await res.text();
+      appendLog(logContent, 'error', `Erreur HTTP ${res.status}: ${err}`);
+      toast('Erreur', `HTTP ${res.status} — vérifie le token GitHub`, 'error');
+    }
+  } catch(e) {
+    appendLog(logContent, 'error', e.message);
+    toast('Erreur réseau', e.message, 'error');
+  }
+}
+
+function triggerFor(account, platform, force) {
+  document.getElementById('trigger-account').value = account;
+  document.getElementById('trigger-force').checked = force;
+  document.getElementById('trigger-workflow').value = platform === 'tiktok' ? 'tiktok.yml' : 'youtube.yml';
+  document.getElementById('trigger-log').style.display = 'none';
+  openModal('modal-trigger');
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  DIAGNOSTICS
+// ═══════════════════════════════════════════════════════════════════════
+async function runDiagnostics() {
+  log('info', '── Diagnostics ──');
+  await testSupabase();
+  await checkRateLimits();
+}
+
+async function testSupabase() {
+  const badge = document.getElementById('db-status-badge');
+  const details = document.getElementById('db-details');
+  badge.className = 'status-badge unknown'; badge.textContent = '⬤ Test...';
+  details.textContent = 'Connexion en cours...';
+
+  if (!STATE.supabaseUrl || !STATE.supabaseKey) {
+    badge.className = 'status-badge error'; badge.textContent = '⬤ Non configuré';
+    details.textContent = 'Configure les credentials dans Config.';
+    return;
+  }
+
+  try {
+    const start = Date.now();
+    const data = await sbFetch('published_videos?select=count&limit=1');
+    const ms = Date.now() - start;
+    badge.className = 'status-badge ok'; badge.textContent = '⬤ OK';
+    details.innerHTML = `
+      <div style="margin-bottom:4px">✅ Connecté en ${ms}ms</div>
+      <div style="color:var(--text3)">URL: ${STATE.supabaseUrl}</div>
+    `;
+    log('info', `Supabase OK (${ms}ms)`);
+    setConnStatus(true);
+  } catch(e) {
+    badge.className = 'status-badge error'; badge.textContent = '⬤ Erreur';
+    details.innerHTML = `<div style="color:var(--red)">❌ ${e.message}</div>`;
+    log('error', `Supabase: ${e.message}`);
+    setConnStatus(false);
+  }
+}
+
+async function checkRateLimits() {
+  const el = document.getElementById('rate-limit-details');
+  el.textContent = 'Vérification...';
+
+  if (!STATE.supabaseUrl) {
+    el.textContent = 'Connexion requise';
+    return;
+  }
+
+  const now = new Date();
+  const since1h = new Date(now.getTime() - 3600000);
+  const since24h = new Date(now.getTime() - 86400000);
+
+  let html = '';
+  for (const acc of STATE.accounts) {
+    try {
+      const [d24, d1h] = await Promise.all([
+        sbQuery('upload_history', { account_name: `eq.${acc.name}`, uploaded_at: `gte.${since24h.toISOString()}`, select: 'id' }),
+        sbQuery('upload_history', { account_name: `eq.${acc.name}`, uploaded_at: `gte.${since1h.toISOString()}`, select: 'id' }),
+      ]);
+      const cnt24 = d24 ? d24.length : 0;
+      const cnt1h = d1h ? d1h.length : 0;
+      const ok24 = cnt24 < acc.max_per_day;
+      html += `
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)">
+          <span style="font-size:12px">${acc.name}</span>
+          <div style="display:flex;gap:8px;font-size:11px">
+            <span style="color:${ok24?'var(--green)':'var(--orange)'}">${cnt24}/${acc.max_per_day}/24h</span>
+            <span style="color:${cnt1h>0?'var(--orange)':'var(--text3)'}">${cnt1h}/1h</span>
+          </div>
+        </div>`;
+    } catch(e) {
+      html += `<div style="padding:4px 0;font-size:11px;color:var(--red)">${acc.name}: ${e.message}</div>`;
+    }
+  }
+  el.innerHTML = html || 'Aucune donnée';
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  ACCOUNT MANAGEMENT
+// ═══════════════════════════════════════════════════════════════════════
+function editAccount(name) {
+  const acc = STATE.accounts.find(a => a.name === name);
+  if (!acc) return;
+  document.getElementById('edit-acc-name-orig').value = name;
+  document.getElementById('edit-acc-subtitle').textContent = `${name} · ${acc.platform}`;
+  document.getElementById('edit-acc-slots').value = acc.slots.join(',');
+  document.getElementById('edit-acc-maxday').value = acc.max_per_day;
+  document.getElementById('edit-acc-tags').value = acc.tags.join(',');
+  document.getElementById('edit-acc-gap').value = acc.min_gap;
+  openModal('modal-edit-account');
+}
+
+function saveAccountEdit() {
+  const name = document.getElementById('edit-acc-name-orig').value;
+  const acc = STATE.accounts.find(a => a.name === name);
+  if (!acc) return;
+  acc.slots = document.getElementById('edit-acc-slots').value.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
+  acc.max_per_day = parseInt(document.getElementById('edit-acc-maxday').value);
+  acc.tags = document.getElementById('edit-acc-tags').value.split(',').map(s => s.trim()).filter(Boolean);
+  acc.min_gap = parseInt(document.getElementById('edit-acc-gap').value);
+  localStorage.setItem('pub_accounts', JSON.stringify(STATE.accounts));
+  closeModal('modal-edit-account');
+  renderAccounts();
+  toast('Sauvegardé', `${name} mis à jour`, 'success');
+
+  // Generate JSON for copy
+  const json = generateAccountJSON(acc);
+  log('info', `Config ${name} (copier dans config/${name}.json):`);
+  log('debug', json);
+  toast('JSON généré', 'Voir le panneau Debug pour le contenu JSON', 'info');
+}
+
+function generateAccountJSON(acc) {
+  const cfg = {
+    platform: acc.platform,
+    account_id: acc.account_id,
+    drive_folder_ids: ["$DRIVE_FOLDER_ID"],
+    schedule: { slots_hours: acc.slots },
+    content: {
+      descriptions_file: `content/descriptions/MyChannel.txt`,
+      tags_pool: acc.tags,
+      ...(acc.platform === 'youtube' ? { youtube_category: "Entertainment" } : {}),
+    },
+    ...(acc.platform === 'tiktok' ? { tags: acc.tags } : {}),
+    rate_limit: {
+      max_per_day: acc.max_per_day,
+      max_per_week: acc.max_per_day * 5,
+      min_gap_minutes: acc.min_gap,
+      max_per_hour: 1,
+    }
+  };
+  return JSON.stringify(cfg, null, 2);
+}
+
+function addAccount() {
+  const name = document.getElementById('new-acc-name').value.trim();
+  const platform = document.getElementById('new-acc-platform').value;
+  const id = document.getElementById('new-acc-id').value.trim();
+  const drive = document.getElementById('new-acc-drive').value.trim();
+  const slots = document.getElementById('new-acc-slots').value.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n));
+  const maxDay = parseInt(document.getElementById('new-acc-maxday').value);
+  const tags = document.getElementById('new-acc-tags').value.split(',').map(s => s.trim()).filter(Boolean);
+
+  if (!name || !id) { toast('Erreur', 'Nom et Account ID requis', 'error'); return; }
+  if (STATE.accounts.find(a => a.name === name)) { toast('Erreur', 'Compte déjà existant', 'error'); return; }
+
+  const newAcc = { name, platform, account_id: id, slots, max_per_day: maxDay, min_gap: platform === 'tiktok' ? 180 : 120, tags, status: 'unknown', today: 0, lastUpload: null };
+  STATE.accounts.push(newAcc);
+  localStorage.setItem('pub_accounts', JSON.stringify(STATE.accounts));
+  closeModal('modal-add-account');
+  renderAccounts();
+  toast('Créé', `${name} ajouté`, 'success');
+
+  const json = generateAccountJSON(newAcc);
+  log('info', `Nouveau compte ${name} — JSON à sauvegarder dans config/${name}.json:`);
+  log('debug', json);
+}
+
+function removeAccount(name) {
+  STATE.accounts = STATE.accounts.filter(a => a.name !== name);
+  localStorage.setItem('pub_accounts', JSON.stringify(STATE.accounts));
+  renderAccounts();
+  toast('Supprimé', `${name} retiré du dashboard`, 'info');
+}
+
+function resetAccount(name) {
+  confirmAction(`reset-${name}`, `Remettre à zéro l'historique d'uploads de ${name}?`, () => doResetAccount(name));
+}
+
+async function doResetAccount(name) {
+  try {
+    await sbFetch(`upload_history?account_name=eq.${encodeURIComponent(name)}`, { method: 'DELETE' });
+    toast('Reset', `Historique de ${name} effacé`, 'success');
+    log('info', `Reset upload_history pour ${name}`);
+    await loadAccountsStatus();
+  } catch(e) {
+    toast('Erreur', e.message, 'error');
+    log('error', `Reset ${name}: ${e.message}`);
+  }
+}
+
+function viewHistory(name) {
+  document.getElementById('filter-account').value = name;
+  showPage('history', document.querySelector('[onclick*=history]'));
+  filterHistory();
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  DANGER ZONE
+// ═══════════════════════════════════════════════════════════════════════
+async function resetUploadHistory() {
+  try {
+    await sbFetch('upload_history?id=gte.0', { method: 'DELETE' });
+    toast('Reset', 'upload_history vidé', 'success');
+    log('warn', 'upload_history réinitialisé');
+    await loadAccountsStatus();
+  } catch(e) { toast('Erreur', e.message, 'error'); }
+}
+
+async function resetPublishedVideos() {
+  try {
+    await sbFetch('published_videos?id=gte.0', { method: 'DELETE' });
+    toast('Reset', 'published_videos vidé — toutes les vidéos sont re-publiables', 'success');
+    log('warn', 'published_videos réinitialisé');
+  } catch(e) { toast('Erreur', e.message, 'error'); }
+}
+
+function resetAccountData() {
+  const name = prompt('Nom du compte à resetter:');
+  if (!name) return;
+  doResetAccount(name);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  CONFIRM MODAL
+// ═══════════════════════════════════════════════════════════════════════
+function confirmAction(key, msg, action) {
+  STATE.confirmedAction = action;
+  document.getElementById('confirm-title').textContent = 'Confirmer';
+  document.getElementById('confirm-msg').textContent = msg;
+  openModal('modal-confirm');
+}
+
+function executeConfirmedAction() {
+  closeModal('modal-confirm');
+  if (STATE.confirmedAction) {
+    STATE.confirmedAction();
+    STATE.confirmedAction = null;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  EXPORT CONFIG
+// ═══════════════════════════════════════════════════════════════════════
+function exportConfig() {
+  const cfg = { accounts: STATE.accounts, exportedAt: new Date().toISOString() };
+  const blob = new Blob([JSON.stringify(cfg, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'dashboard-config.json';
+  a.click();
+  toast('Export', 'Config exportée', 'success');
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  AUTO REFRESH
+// ═══════════════════════════════════════════════════════════════════════
+function toggleAutoRefresh() {
+  STATE.autoRefresh = !STATE.autoRefresh;
+  document.getElementById('auto-refresh-label').textContent = STATE.autoRefresh ? '⏸ Auto' : '▶ Auto';
+  if (STATE.autoRefresh) {
+    STATE.autoRefreshTimer = setInterval(() => { refreshAll(); runDiagnostics(); }, 30000);
+    log('info', 'Auto-refresh activé (30s)');
+  } else {
+    clearInterval(STATE.autoRefreshTimer);
+    log('info', 'Auto-refresh désactivé');
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  LOGS
+// ═══════════════════════════════════════════════════════════════════════
+function log(level, msg) {
+  STATE.logs.push({ level, msg, time: new Date() });
+  if (STATE.logs.length > 200) STATE.logs.shift();
+  renderLogs();
+}
+
+function renderLogs() {
+  const filter = document.getElementById('log-level-filter')?.value || '';
+  const el = document.getElementById('debug-log');
+  if (!el) return;
+  const entries = STATE.logs.filter(l => !filter || l.level === filter);
+  if (!entries.length) {
+    el.innerHTML = '<div class="log-empty">Aucun log</div>';
+    return;
+  }
+  el.innerHTML = entries.slice(-100).reverse().map(l => `
+    <div class="log-entry">
+      <span class="log-time">${l.time.toLocaleTimeString('fr-FR')}</span>
+      <span class="log-level ${l.level}">${l.level.toUpperCase()}</span>
+      <span class="log-msg">${escHtml(l.msg)}</span>
+    </div>
+  `).join('');
+}
+
+function appendLog(container, level, msg) {
+  container.innerHTML += `
+    <div class="log-entry">
+      <span class="log-time">${new Date().toLocaleTimeString('fr-FR')}</span>
+      <span class="log-level ${level}">${level.toUpperCase()}</span>
+      <span class="log-msg">${escHtml(msg)}</span>
+    </div>`;
+  container.scrollTop = container.scrollHeight;
+}
+
+function filterLogs() { renderLogs(); }
+
+function clearLogs() {
+  STATE.logs = [];
+  renderLogs();
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  MODAL
+// ═══════════════════════════════════════════════════════════════════════
+function openModal(id) {
+  document.getElementById(id).classList.add('open');
+}
+function closeModal(id) {
+  document.getElementById(id).classList.remove('open');
+}
+document.querySelectorAll('.modal-overlay').forEach(el => {
+  el.addEventListener('click', e => { if (e.target === el) el.classList.remove('open'); });
+});
+
+// ═══════════════════════════════════════════════════════════════════════
+//  TOAST
+// ═══════════════════════════════════════════════════════════════════════
+function toast(title, msg, type = 'info') {
+  const icons = { success: '✅', error: '❌', warning: '⚠️', info: 'ℹ️' };
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.innerHTML = `
+    <div class="toast-icon">${icons[type]||'ℹ️'}</div>
+    <div class="toast-content">
+      <div class="toast-title">${escHtml(title)}</div>
+      ${msg ? `<div class="toast-msg">${escHtml(msg)}</div>` : ''}
+    </div>`;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(() => el.remove(), 4000);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════════════════════════════════
+function escHtml(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function formatDate(iso) {
+  if (!iso) return '—';
+  try {
+    return new Date(iso).toLocaleString('fr-FR', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' });
+  } catch(e) { return iso; }
+}
+
+function timeAgo(date) {
+  if (!date) return 'jamais';
+  const diff = Date.now() - new Date(date).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return 'À l\'instant';
+  if (m < 60) return `Il y a ${m}min`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `Il y a ${h}h`;
+  return `Il y a ${Math.floor(h/24)}j`;
+}
+
+function getNextSlot(slots) {
+  if (!slots || !slots.length) return '—';
+  const now = new Date();
+  const paris = new Date(now.toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
+  const currentMinutes = paris.getHours() * 60 + paris.getMinutes();
+  for (const s of slots.slice().sort((a,b)=>a-b)) {
+    if (s * 60 > currentMinutes) return `${String(s).padStart(2,'0')}h (Paris)`;
+  }
+  return `${String(slots[0]).padStart(2,'0')}h demain`;
+}
+
+function isNearSlot(hour) {
+  const paris = new Date(new Date().toLocaleString('en-US', { timeZone: 'Europe/Paris' }));
+  const diff = Math.abs(paris.getHours() - hour) * 60 + paris.getMinutes();
+  return diff <= 30;
+}
+
+function updateSysClock() {
+  const el1 = document.getElementById('sys-time');
+  const el2 = document.getElementById('sys-paris');
+  const el3 = document.getElementById('sys-utc');
+  if (!el1) return;
+  const now = new Date();
+  el1.textContent = now.toLocaleTimeString('fr-FR');
+  el2.textContent = now.toLocaleTimeString('fr-FR', { timeZone: 'Europe/Paris' });
+  const off = -now.getTimezoneOffset() / 60;
+  el3.textContent = `UTC${off >= 0 ? '+' : ''}${off}`;
+}
+</script>
+</body>
+</html>
