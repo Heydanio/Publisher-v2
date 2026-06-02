@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Publisher-v2 · TITAN V3 Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/libsodium-wrappers@0.7.13/dist/modules/libsodium-wrappers.js"></script>
 <style>
   :root {
     --bg: #0a0a0f;
@@ -612,6 +613,7 @@
     <button class="nav-tab active" onclick="showPage('dashboard', this)">📊 Dashboard</button>
     <button class="nav-tab" onclick="showPage('accounts', this)">👤 Comptes</button>
     <button class="nav-tab" onclick="showPage('history', this)">📋 Historique</button>
+    <button class="nav-tab" onclick="showPage('auth', this)">🔐 Auth <span class="badge badge-new">AUTO</span></button>
     <button class="nav-tab" onclick="showPage('debug', this)">🔍 Debug</button>
     <button class="nav-tab" onclick="showPage('config', this)">⚙️ Config</button>
   </nav>
@@ -754,6 +756,93 @@
             <span style="padding:4px 10px;font-size:12px;color:var(--text2)" id="page-indicator">1/1</span>
             <button class="btn btn-ghost btn-sm" id="next-btn" onclick="historyPage(1)">Suivant →</button>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════ AUTH ══ -->
+    <div class="page" id="page-auth">
+      <div class="section-header">
+        <div>
+          <div class="section-title">🔐 Authentification automatique</div>
+          <div class="section-sub">Connecte un compte YouTube en 3 clics — OAuth + B64 + push GitHub Secrets, zéro code</div>
+        </div>
+      </div>
+
+      <div class="alert alert-info">
+        ℹ️ Le serveur doit tourner sur <strong>http://localhost:8080</strong>. Lance: <code style="background:#000;padding:2px 6px;border-radius:4px">python -m http.server 8080</code> puis ouvre <code style="background:#000;padding:2px 6px;border-radius:4px">http://localhost:8080/dashboard.html</code>
+      </div>
+
+      <div class="grid grid-2">
+
+        <!-- STEP 1: client_secret.json -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">① Client OAuth Google</div>
+            <span id="step1-badge" class="status-badge unknown"><span class="status-dot"></span>En attente</span>
+          </div>
+          <p style="color:var(--text2);font-size:12px;margin-bottom:14px">
+            Upload le fichier <strong>client_secret.json</strong> téléchargé depuis
+            <a href="https://console.cloud.google.com/apis/credentials" target="_blank" style="color:var(--accent2)">Google Cloud Console → Credentials</a>.
+            Type: <strong>Desktop app</strong> ou <strong>Web app</strong> avec redirect <code>http://localhost:8080</code>.
+          </p>
+          <input type="file" id="auth-client-file" accept=".json" style="display:none" onchange="handleClientFile(event)">
+          <button class="btn btn-blue" style="width:100%" onclick="document.getElementById('auth-client-file').click()">
+            📁 Choisir client_secret.json
+          </button>
+          <div id="auth-client-info" style="margin-top:12px;font-size:12px;color:var(--text3)"></div>
+        </div>
+
+        <!-- STEP 2: GitHub -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">② GitHub (pour push secrets)</div>
+            <span id="step2-badge" class="status-badge unknown"><span class="status-dot"></span>En attente</span>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Repository</label>
+            <input type="text" class="form-input" id="auth-gh-repo" placeholder="Heydanio/Publisher-v2" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">GitHub Token (scope: repo)</label>
+            <input type="password" class="form-input" id="auth-gh-token" placeholder="ghp_..." />
+            <div class="form-hint">Token classic avec scope <code>repo</code> (full). <a href="https://github.com/settings/tokens/new?scopes=repo&description=Publisher-v2-secrets" target="_blank" style="color:var(--accent2)">Créer →</a></div>
+          </div>
+          <button class="btn btn-ghost" style="width:100%" onclick="saveAuthGithub()">Vérifier accès repo</button>
+          <div id="auth-gh-info" style="margin-top:10px;font-size:12px"></div>
+        </div>
+
+      </div>
+
+      <!-- STEP 3: Authentifier comptes -->
+      <div class="card" style="margin-top:16px">
+        <div class="card-header">
+          <div class="card-title">③ Authentifier les comptes YouTube</div>
+        </div>
+        <p style="color:var(--text2);font-size:12px;margin-bottom:16px">
+          Pour chaque compte: clique <strong>Authentifier</strong> → connecte-toi au bon compte Google dans la popup →
+          le dashboard récupère le <code>refresh_token</code>, l'encode en B64, et le push vers GitHub Secrets automatiquement.
+        </p>
+
+        <div id="auth-accounts-list"></div>
+
+        <hr class="divider">
+
+        <div style="display:flex;align-items:center;justify-content:space-between">
+          <div style="font-size:12px;color:var(--text3)">
+            Le secret <code>YT_CLIENT_SECRETS_B64</code> sera aussi pushé automatiquement (commun aux comptes).
+          </div>
+          <button class="btn btn-purple" onclick="pushClientSecret()">
+            📤 Push YT_CLIENT_SECRETS_B64
+          </button>
+        </div>
+      </div>
+
+      <!-- Auth log -->
+      <div class="card" style="margin-top:16px">
+        <div class="card-header"><div class="card-title">Journal Auth</div></div>
+        <div class="log-container" id="auth-log" style="max-height:240px">
+          <div class="log-empty">Suis les étapes ① ② ③ ci-dessus</div>
         </div>
       </div>
     </div>
@@ -1067,6 +1156,12 @@ document.addEventListener('DOMContentLoaded', () => {
     refreshAll();
   }
   renderConfigAccounts();
+
+  // Détecte un retour OAuth (Google redirige vers localhost:8080/?code=...)
+  if (window.location.search.includes('code=')) {
+    showPage('auth', document.querySelector('[onclick*=auth]'));
+    handleOAuthRedirect();
+  }
 });
 
 function loadFromStorage() {
@@ -1101,6 +1196,7 @@ function showPage(id, tab) {
   if (tab) tab.classList.add('active');
   if (id === 'history') loadHistory();
   if (id === 'debug') runDiagnostics();
+  if (id === 'auth') initAuthPage();
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -1871,6 +1967,292 @@ function toast(title, msg, type = 'info') {
     </div>`;
   document.getElementById('toast-container').appendChild(el);
   setTimeout(() => el.remove(), 4000);
+}
+
+// ═══════════════════════════════════════════════════════════════════════
+//  AUTH — OAuth Google + B64 + push GitHub Secrets (low-code automatique)
+// ═══════════════════════════════════════════════════════════════════════
+const AUTH = {
+  clientSecret: null,        // parsed client_secret.json
+  clientId: '',
+  clientSecretValue: '',
+  ghRepo: '',
+  ghToken: '',
+  repoKeyId: null,           // GitHub repo public key for secret encryption
+  repoPublicKey: null,
+  pendingAccount: null,      // account being authed
+  // secret name mapping per account
+  secretName: {
+    youtube_compte1: 'YT_CREDENTIALS_B64',
+    youtube_compte2: 'YT_CREDENTIALS_COMPTE2_B64',
+  },
+};
+
+const OAUTH_REDIRECT = 'http://localhost:8080';
+const YT_SCOPE = 'https://www.googleapis.com/auth/youtube.upload';
+
+function authLog(level, msg) {
+  const el = document.getElementById('auth-log');
+  if (el.querySelector('.log-empty')) el.innerHTML = '';
+  appendLog(el, level, msg);
+}
+
+// ── STEP 1: client_secret.json ──
+function handleClientFile(ev) {
+  const file = ev.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const json = JSON.parse(e.target.result);
+      const node = json.installed || json.web;
+      if (!node || !node.client_id) throw new Error('Format invalide: pas de client_id (clé installed/web)');
+      AUTH.clientSecret = json;
+      AUTH.clientId = node.client_id;
+      AUTH.clientSecretValue = node.client_secret || '';
+      localStorage.setItem('auth_client_secret', e.target.result);
+      document.getElementById('auth-client-info').innerHTML =
+        `<span style="color:var(--green)">✅ Chargé</span> · client_id: <code>${node.client_id.slice(0,30)}...</code>`;
+      setBadge('step1-badge', 'ok', 'Prêt');
+      authLog('info', `client_secret.json chargé (${file.name})`);
+      renderAuthAccounts();
+    } catch(err) {
+      document.getElementById('auth-client-info').innerHTML = `<span style="color:var(--red)">❌ ${err.message}</span>`;
+      authLog('error', 'Parse client_secret: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+// ── STEP 2: GitHub ──
+async function saveAuthGithub() {
+  AUTH.ghRepo = document.getElementById('auth-gh-repo').value.trim();
+  AUTH.ghToken = document.getElementById('auth-gh-token').value.trim();
+  const info = document.getElementById('auth-gh-info');
+  if (!AUTH.ghRepo || !AUTH.ghToken) {
+    info.innerHTML = '<span style="color:var(--red)">Repo + token requis</span>';
+    return;
+  }
+  localStorage.setItem('auth_gh_repo', AUTH.ghRepo);
+  localStorage.setItem('auth_gh_token', AUTH.ghToken);
+  // sync with main config
+  STATE.ghRepo = AUTH.ghRepo; STATE.ghToken = AUTH.ghToken;
+  localStorage.setItem('pub_gh_repo', AUTH.ghRepo);
+  localStorage.setItem('pub_gh_token', AUTH.ghToken);
+
+  info.innerHTML = '<span style="color:var(--text3)">Vérification...</span>';
+  try {
+    const key = await ghGetPublicKey();
+    AUTH.repoKeyId = key.key_id;
+    AUTH.repoPublicKey = key.key;
+    info.innerHTML = '<span style="color:var(--green)">✅ Accès OK · clé de chiffrement récupérée</span>';
+    setBadge('step2-badge', 'ok', 'Prêt');
+    authLog('info', `GitHub ${AUTH.ghRepo} accessible, clé secrets récupérée`);
+  } catch(e) {
+    info.innerHTML = `<span style="color:var(--red)">❌ ${e.message}</span>`;
+    setBadge('step2-badge', 'error', 'Erreur');
+    authLog('error', 'GitHub: ' + e.message);
+  }
+}
+
+async function ghGetPublicKey() {
+  const res = await fetch(`https://api.github.com/repos/${AUTH.ghRepo}/actions/secrets/public-key`, {
+    headers: {
+      'Authorization': `Bearer ${AUTH.ghToken}`,
+      'Accept': 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+    }
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+  return res.json();
+}
+
+// ── Encrypt + push secret (libsodium sealed box via tweetnacl) ──
+async function ghPutSecret(name, plaintextValue) {
+  if (!AUTH.repoPublicKey) {
+    const key = await ghGetPublicKey();
+    AUTH.repoKeyId = key.key_id;
+    AUTH.repoPublicKey = key.key;
+  }
+  const encrypted = await sealSecret(plaintextValue, AUTH.repoPublicKey);
+  const res = await fetch(`https://api.github.com/repos/${AUTH.ghRepo}/actions/secrets/${name}`, {
+    method: 'PUT',
+    headers: {
+      'Authorization': `Bearer ${AUTH.ghToken}`,
+      'Accept': 'application/vnd.github+json',
+      'X-GitHub-Api-Version': '2022-11-28',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ encrypted_value: encrypted, key_id: AUTH.repoKeyId }),
+  });
+  if (res.status !== 201 && res.status !== 204) {
+    throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+  }
+}
+
+// Sealed box encryption (GitHub secrets format) using libsodium crypto_box_seal
+async function sealSecret(message, publicKeyB64) {
+  await sodium.ready;
+  const pubKey = sodium.from_base64(publicKeyB64, sodium.base64_variants.ORIGINAL);
+  const msgBytes = sodium.from_string(message);
+  const sealed = sodium.crypto_box_seal(msgBytes, pubKey);
+  return sodium.to_base64(sealed, sodium.base64_variants.ORIGINAL);
+}
+
+// ── STEP 3: OAuth per account ──
+function renderAuthAccounts() {
+  const el = document.getElementById('auth-accounts-list');
+  const ytAccounts = STATE.accounts.filter(a => a.platform === 'youtube');
+  if (!ytAccounts.length) {
+    el.innerHTML = '<div class="log-empty">Aucun compte YouTube configuré</div>';
+    return;
+  }
+  el.innerHTML = ytAccounts.map(acc => {
+    const secret = AUTH.secretName[acc.name] || `YT_CREDENTIALS_${acc.name.toUpperCase()}_B64`;
+    const done = localStorage.getItem('auth_done_' + acc.name);
+    return `
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px;background:var(--bg3);border-radius:var(--radius-sm);margin-bottom:8px">
+      <div>
+        <div style="font-size:13px;font-weight:600">${acc.name}</div>
+        <div style="font-size:11px;color:var(--text3)">${acc.account_id} · secret: <code>${secret}</code></div>
+        ${done ? `<div style="font-size:11px;color:var(--green);margin-top:2px">✅ Authentifié ${done}</div>` : ''}
+      </div>
+      <button class="btn btn-green" onclick="startOAuth('${acc.name}')">
+        🔓 Authentifier
+      </button>
+    </div>`;
+  }).join('');
+}
+
+function startOAuth(accountName) {
+  if (!AUTH.clientId) { toast('Erreur', 'Upload client_secret.json d\'abord (étape ①)', 'error'); return; }
+  if (!AUTH.ghRepo || !AUTH.repoPublicKey) { toast('Erreur', 'Configure GitHub d\'abord (étape ②)', 'error'); return; }
+
+  AUTH.pendingAccount = accountName;
+  // OAuth2 code flow with PKCE-less (we have client_secret), redirect to localhost
+  const params = new URLSearchParams({
+    client_id: AUTH.clientId,
+    redirect_uri: OAUTH_REDIRECT,
+    response_type: 'code',
+    scope: YT_SCOPE,
+    access_type: 'offline',
+    prompt: 'consent',     // force refresh_token
+    state: accountName,
+  });
+  const url = 'https://accounts.google.com/o/oauth2/v2/auth?' + params.toString();
+  authLog('info', `OAuth démarré pour ${accountName}, ouverture popup...`);
+  window.open(url, 'oauth', 'width=520,height=640');
+  toast('OAuth', 'Connecte-toi au bon compte Google dans la popup', 'info');
+}
+
+// Catch OAuth redirect (when dashboard loaded at localhost:8080 and Google redirects back)
+async function handleOAuthRedirect() {
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get('code');
+  const state = params.get('state');
+  const error = params.get('error');
+  if (error) { authLog('error', 'OAuth refusé: ' + error); return; }
+  if (!code) return;
+
+  // restore auth context from storage
+  loadAuthFromStorage();
+  const accountName = state || AUTH.pendingAccount;
+  authLog('info', `Code OAuth reçu pour ${accountName}, échange contre tokens...`);
+
+  try {
+    const tokens = await exchangeCodeForTokens(code);
+    if (!tokens.refresh_token) {
+      authLog('warn', '⚠️ Pas de refresh_token reçu. Révoque l\'accès dans https://myaccount.google.com/permissions puis réessaie.');
+      toast('Attention', 'Pas de refresh_token — révoque l\'accès Google et réessaie', 'warning');
+    }
+    const credsJson = {
+      token: tokens.access_token,
+      refresh_token: tokens.refresh_token,
+      token_uri: 'https://oauth2.googleapis.com/token',
+      client_id: AUTH.clientId,
+      client_secret: AUTH.clientSecretValue,
+      scopes: [YT_SCOPE],
+    };
+    const b64 = btoa(JSON.stringify(credsJson));
+    const secretName = AUTH.secretName[accountName] || `YT_CREDENTIALS_${accountName.toUpperCase()}_B64`;
+    authLog('info', `Push ${secretName} vers GitHub Secrets...`);
+    await ghPutSecret(secretName, b64);
+    localStorage.setItem('auth_done_' + accountName, new Date().toLocaleString('fr-FR'));
+    authLog('info', `✅ ${secretName} pushé! ${accountName} prêt à publier.`);
+    toast('Succès', `${accountName} authentifié et secret pushé`, 'success');
+    renderAuthAccounts();
+    // clean URL
+    window.history.replaceState({}, '', window.location.pathname);
+  } catch(e) {
+    authLog('error', 'Échange tokens: ' + e.message);
+    toast('Erreur', e.message, 'error');
+  }
+}
+
+async function exchangeCodeForTokens(code) {
+  const body = new URLSearchParams({
+    code: code,
+    client_id: AUTH.clientId,
+    client_secret: AUTH.clientSecretValue,
+    redirect_uri: OAUTH_REDIRECT,
+    grant_type: 'authorization_code',
+  });
+  const res = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body.toString(),
+  });
+  if (!res.ok) throw new Error(`Token exchange HTTP ${res.status}: ${await res.text()}`);
+  return res.json();
+}
+
+// Push the common client_secret as YT_CLIENT_SECRETS_B64
+async function pushClientSecret() {
+  if (!AUTH.clientSecret) { toast('Erreur', 'Upload client_secret.json d\'abord', 'error'); return; }
+  if (!AUTH.ghRepo || !AUTH.repoPublicKey) { toast('Erreur', 'Configure GitHub d\'abord', 'error'); return; }
+  try {
+    const b64 = btoa(JSON.stringify(AUTH.clientSecret));
+    authLog('info', 'Push YT_CLIENT_SECRETS_B64...');
+    await ghPutSecret('YT_CLIENT_SECRETS_B64', b64);
+    authLog('info', '✅ YT_CLIENT_SECRETS_B64 pushé');
+    toast('Succès', 'YT_CLIENT_SECRETS_B64 pushé vers GitHub', 'success');
+  } catch(e) {
+    authLog('error', e.message);
+    toast('Erreur', e.message, 'error');
+  }
+}
+
+function loadAuthFromStorage() {
+  const cs = localStorage.getItem('auth_client_secret');
+  if (cs && !AUTH.clientSecret) {
+    try {
+      AUTH.clientSecret = JSON.parse(cs);
+      const node = AUTH.clientSecret.installed || AUTH.clientSecret.web;
+      AUTH.clientId = node.client_id;
+      AUTH.clientSecretValue = node.client_secret || '';
+    } catch(e) {}
+  }
+  AUTH.ghRepo = AUTH.ghRepo || localStorage.getItem('auth_gh_repo') || localStorage.getItem('pub_gh_repo') || '';
+  AUTH.ghToken = AUTH.ghToken || localStorage.getItem('auth_gh_token') || localStorage.getItem('pub_gh_token') || '';
+}
+
+function initAuthPage() {
+  loadAuthFromStorage();
+  if (AUTH.clientId) {
+    document.getElementById('auth-client-info').innerHTML =
+      `<span style="color:var(--green)">✅ Chargé</span> · client_id: <code>${AUTH.clientId.slice(0,30)}...</code>`;
+    setBadge('step1-badge', 'ok', 'Prêt');
+  }
+  if (AUTH.ghRepo) document.getElementById('auth-gh-repo').value = AUTH.ghRepo;
+  if (AUTH.ghToken) document.getElementById('auth-gh-token').value = AUTH.ghToken;
+  renderAuthAccounts();
+}
+
+function setBadge(id, status, text) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.className = 'status-badge ' + status;
+  el.innerHTML = `<span class="status-dot"></span>${text}`;
 }
 
 // ═══════════════════════════════════════════════════════════════════════
